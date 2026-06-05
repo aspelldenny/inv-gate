@@ -136,6 +136,16 @@ Rust binary `inv-gate` replace với:
 - Full Workflow v2.1 doctrine port sẽ ship **POST-PILOT** sau khi `advisory-inbox` Phase 1-4 xong + retrospective
 - INV catalog source: `~/tarot/docs/security/INVARIANTS.md` (mechanical INV-001..010) — port nội dung khi bắt đầu code phase
 
+### Resume brief from tarot orchestrator (2026-06-05)
+
+**Gate ĐÃ MỞ:** pilot `advisory-inbox` Phase 1-4 ship + retro v2.2/v2.3 viết xong → bắt đầu code được. **ROI cao** (cao hơn claude-hooks): thay thẳng `tarot/scripts/security-gate.sh` + 4 file check (~794 dòng Python+Bash) đang chạy pre-commit MỖI commit.
+
+**Vị trí roadmap (Quản đốc + Sếp chốt):** Tier 2, nhưng ưu tiên TRƯỚC claude-hooks (ROI rõ hơn — Bash hook claude-hooks vẫn chạy tốt; còn security-gate.sh thì inv-gate thay được ngay).
+
+**Ownership chốt với doctor (tránh trùng):** inv-gate own **pre-commit BLOCKING** (INV-009/010 secrets/runtime). doctor `runtime-scan` (cùng quét `.git/config`/`.mcp.json`/`.env*`) giữ vai **defense-in-depth manual/CI**, KHÔNG wire pre-commit. Per `tarot/INVARIANTS.md:181`. Chi tiết: `~/doctor/docs/BACKLOG.md §Inbound from tarot`.
+
+**Wiring tarot (Phase 4):** tarot pre-commit đổi `bash scripts/security-gate.sh` → `inv-gate gate --all --mechanical-only`; delete/deprecate 5 file Python+Bash. Brief tarot-side: `~/tarot/docs/BACKLOG.md §🦀 Rust toolchain`.
+
 ---
 
 ## Cross-reference
