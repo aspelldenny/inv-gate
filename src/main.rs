@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod checks;
 mod gate;
+mod serve;
 
 #[derive(Parser)]
 #[command(name = "inv-gate", version, about = "Mechanical security invariant checks (INV-009...) — CLI + MCP dual mode")]
@@ -23,6 +24,8 @@ enum Commands {
         #[arg(long, required = true)]
         all: bool,
     },
+    /// MCP stdio server (rmcp) — exposes check_*/gate tools; scans process cwd
+    Serve,
 }
 
 #[derive(Subcommand)]
@@ -52,6 +55,7 @@ fn main() {
             // but exhaustiveness requires it. golden/security-gate.sh:14 → exit 2.
             unreachable!("clap enforces --all required")
         }
+        Commands::Serve => serve::run(),
     };
     std::process::exit(exit_code);
 }

@@ -2,6 +2,25 @@
 
 Format loosely follows Keep a Changelog.
 
+## [Unreleased] — P006 serve MCP stdio — 2026-06-11
+
+### Added
+- `src/serve.rs` — MCP stdio server via rmcp 1.7.0. Exposes 5 tools: `check_secrets` / `check_runtime` / `check_port` / `check_schema` / `gate`. Each tool calls the corresponding `run_core()` in-process (zero subprocess, same code path as CLI). Response: 1 JSON text content item with 4 fields: `exit_code` (i32), `is_clean` (bool), `findings` (stdout text), `stderr` (stderr text, e.g. WARN from port). `isError: false` for check findings (tool ran successfully); `true` only on internal error. CWD contract: client launches server with cwd = repo to scan.
+- `src/main.rs` — `Commands::Serve` variant; dispatches to `serve::run()`.
+- `tests/mcp_serve.rs` — 5 integration tests via raw JSON-RPC pipe (initialize → notifications/initialized → tools/list → tools/call): `mcp_tools_list_five_tools`, `mcp_five_tools_dirty_match_cli`, `mcp_clean_fixture_exit_zero`, `mcp_check_port_stderr_field_is_string`, `serve_with_unknown_flag_exits_2`. Oracle: live CLI `run_core()` on same fixture.
+
+### Changed (buffered-core refactor — parity byte-exact)
+- `src/checks/mod.rs` — added `pub struct CheckOutput { stdout: String, stderr: String, code: i32 }`.
+- `src/checks/secrets.rs`, `port.rs`, `runtime.rs`, `schema.rs` — each gains `run_core() -> CheckOutput` (pure, no I/O side effects) + thin `run() -> i32` CLI wrapper using `print!`/`eprint!`. Parity: BYTE-EXACT vs all prior pins (79 old tests green).
+- `src/gate.rs` — `run_core() -> CheckOutput` accumulates all sections via `run_section_buf()` helper; `run()` thin CLI wrapper. 79 old tests remain BYTE-EXACT.
+- Stdout-poisoning grep: 0 `println!` in core or serve (only `print!`/`eprint!` in `run()` wrappers + `eprintln!` in serve error paths). JSON-RPC framing safe.
+
+### Changed (dep pinning — security surface)
+- `Cargo.toml` — pinned exact `=version` for: `serde`, `serde_json`, `tokio` (added `time` feature for rmcp internal timeouts), `anyhow`, `thiserror`, `rmcp`. Rationale: supply-chain reproducibility; Giám sát review on every upgrade (CLAUDE.md).
+
+### Deviation — tokio `time` feature
+rmcp 1.7.0 uses `tokio::time` internally (not documented in crate README). Added `"time"` to tokio features to satisfy runtime requirement. No behavior change to CLI paths.
+
 ## [Unreleased] — P005 gate --all + dogfood swap — 2026-06-11
 
 ### Added

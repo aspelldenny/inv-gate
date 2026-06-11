@@ -248,7 +248,9 @@ fn collect_files() -> Vec<std::path::PathBuf> {
 }
 
 // golden/check-hardcoded-secrets.py:173-188 — main()
-pub fn run() -> i32 {
+/// Buffered core — no stdout/stderr side effects; returns CheckOutput.
+/// Called by both CLI run() and MCP serve tools.
+pub fn run_core() -> crate::checks::CheckOutput {
     let mut all_violations: Vec<String> = Vec::new();
 
     for path in collect_files() {
@@ -272,13 +274,24 @@ pub fn run() -> i32 {
 
     if !all_violations.is_empty() {
         // golden/check-hardcoded-secrets.py:185-186
-        println!("{}", all_violations.join("\n"));
-        1
+        let text = format!("{}\n", all_violations.join("\n"));
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     } else {
         // golden/check-hardcoded-secrets.py:187
-        println!("INV-009: PASS (0 hardcoded secrets)");
-        0
+        crate::checks::CheckOutput {
+            stdout: "INV-009: PASS (0 hardcoded secrets)\n".to_string(),
+            stderr: String::new(),
+            code: 0,
+        }
     }
+}
+
+/// CLI wrapper — prints buffered output to real stdout/stderr, returns exit code.
+pub fn run() -> i32 {
+    let out = run_core();
+    print!("{}", out.stdout);
+    eprint!("{}", out.stderr);
+    out.code
 }
 
 // ── Unit tests (Task 3 Lưu ý 4 — V2, BẮT BUỘC) ─────────────────────────────

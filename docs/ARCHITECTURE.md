@@ -17,14 +17,24 @@ porting (doc-rotate precedent).
   - `port.rs` (INV-001) — **shipped P004**: parity port of `golden/check-port-bind.py` (golden:12-80); COMPOSE_FILES 3 hardcoded paths, ALLOWED_PUBLIC nginx set, 4-layer line-based parse (PORT_LINE_RE / numeric filter `^[\d.:]+$` / is_in_ports_block backward-walk / classify 2/3/N-part), WARN-stderr missing file, output `{fname}:{lineno}: INV-001 violated -- {reason}`. Non-UTF-8: error-path exit non-zero.
   - `runtime.rs` (INV-010) — **shipped P003**: parity port of `golden/check-runtime-secrets.py` (golden:40-245); RUNTIME_FILES + INFRA_GLOBS (read_dir+sort, no glob crate) + INFRA_TOP_LEVEL, 15 prefix patterns + 1 generic, allowlist (golden:119-135), SKIP_EXTENSIONS (golden:77), masking (golden:169-173), errors="ignore" byte-strip (golden:180). V2 deviation: 4 db-conn patterns (golden:100-103) transcribed — `(?!\$)` dropped (equivalence-proven, proof tests g1-g4). Sub-mech F: dotfile token leak classification (golden:39).
   - `schema.rs` (Prisma schema-safety) — **shipped P004**: parity port of `golden/check-schema-safety.sh` (golden:16-64); ALLOW_DATA_LOSS bypass (exact `"true"`, em-dash echo), 3-step git fallback chain via `std::process::Command` (Stdio::null() suppresses stderr), header-skip + destructive grep pipeline, 6-branch table A-F. First bash script ported. O1.2: 15-char SHA in fallback ported as-is.
-- `src/gate.rs` (gate --all) — **shipped P005**: orchestrator parity port of `golden/security-gate.sh --mechanical-only`. In-process: `checks::{port,secrets,runtime}::run()` (tuần tự). 6 inline private fns (INV-002..006 + INV-008); INV-008 Python→Rust-native (no python3 subprocess). INV-007 skipped in mechanical-only. Accumulator: all sections run, PASS/FAIL/WARN counters, summary verbatim `:204-210`. Flag mapping: `gate --all` ≡ `--mechanical-only`; `--include-ssh`/`--mechanical-only` not in Rust CLI (Sprint 2). Cite range per section in source.
+- `src/gate.rs` (gate --all) — **shipped P005**: orchestrator parity port of `golden/security-gate.sh --mechanical-only`. In-process: `checks::{port,secrets,runtime}::run_core()` (buffered-core — P006 refactor). 6 inline private fns (INV-002..006 + INV-008); INV-008 Python→Rust-native (no python3 subprocess). INV-007 skipped in mechanical-only. Accumulator: all sections run, PASS/FAIL/WARN counters, summary verbatim `:204-210`. Flag mapping: `gate --all` ≡ `--mechanical-only`; `--include-ssh`/`--mechanical-only` not in Rust CLI (Sprint 2). Cite range per section in source. **Buffered-core (P006):** `run_core() -> CheckOutput` accumulates all section output; `run() -> i32` thin CLI wrapper.
+- `src/serve.rs` — **shipped P006**: MCP stdio server (rmcp 1.7.0). `ServerHandler` impl with `ToolRouter` of 5 `ToolRoute::new_dyn()` routes. Each route calls `run_core()` in-process, wraps result in 4-field JSON response via `make_response()`. Runtime: `tokio::runtime::Builder::new_current_thread().enable_time()` (current-thread, time feature for rmcp internals). Blocks on `RunningService::waiting()` until stdin closed.
 - `golden/` — FROZEN oracle scripts (read-only reference)
 - `tests/golden/` (P001) — pinned oracle outputs; parity tests compare Rust vs pin
+- `tests/mcp_serve.rs` (P006) — MCP integration tests: raw JSON-RPC pipe via `std::process::Command`, `ServeSession` struct, `read_response()` skips notifications, 5 tests covering tools/list + tools/call (dirty + clean) + stderr field + unknown-flag exit 2
 
 ## Data flow
 
-repo files → check module (regex/walk, same patterns as golden) → findings (path:line + pattern id)
-→ stdout report + exit code → consumed by pre-commit hook `[4/7]` (CLI) or Giám sát/Quản đốc (MCP).
+### CLI path
+repo files → `run_core()` (pure, buffered) → `CheckOutput { stdout, stderr, code }`
+→ `run()` thin wrapper: `print!(stdout)` + `eprint!(stderr)` + `process::exit(code)`
+→ consumed by pre-commit hook `[4/7]`.
+
+### MCP path (P006)
+MCP client (Claude / Giám sát) → JSON-RPC over stdin/stdout → `serve::run()` (tokio current-thread)
+→ `ToolRouter::call()` → same `run_core()` in-process (zero subprocess)
+→ `make_response()`: `CallToolResult` with 1 text content item = JSON `{ exit_code, is_clean, findings, stderr }`
+→ JSON-RPC response to client. stdout = JSON-RPC ONLY (no print!/println! in serve or core).
 
 **P005 dogfood data flow (per-check swap):**
 pre-commit `[4/7]` → `bash scripts/security-gate.sh --mechanical-only` (adapted 99 LOC) →
