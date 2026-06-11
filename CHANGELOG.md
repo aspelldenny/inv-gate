@@ -2,6 +2,19 @@
 
 Format loosely follows Keep a Changelog.
 
+## [Unreleased] — P005 gate --all + dogfood swap — 2026-06-11
+
+### Added
+- `src/gate.rs` — orchestrator port of `golden/security-gate.sh --mechanical-only` branch (P005). In-process calls: `checks::{port,secrets,runtime}::run()` (tuần tự, single-thread, no subprocess). 6 inline check private fns: `inv_002` (`:latest` tag — INV-002), `inv_003` (.env.example real value — INV-003), `inv_004` (.env.* gitignored + history — INV-004), `inv_005` (Sentry beforeSend/beforeBreadcrumb — INV-005), `inv_006` (astro-service CORS wildcard — INV-006), `inv_008` (internal services expose vs ports — INV-008, Python→Rust-native). INV-007 skipped (mechanical-only — zero output). Accumulator semantics: all sections run, exit 1 iff FAIL>0. Summary verbatim: `====...` + `Security gate: $PASS passed, $FAIL failed, $WARN warnings` + `Failed invariants: ...` only when FAIL>0.
+- `src/main.rs` — `Gate { --all }` variant; `mod gate;`; dispatch to `gate::run()`. `gate` bare or unknown flag → clap exit 2.
+- `tests/parity_gate.rs` — parity tests (dirty/clean) stdout+stderr BYTE-EXACT vs `gate--{dirty,clean}` pins; usage-error exit 2; unit probes: accumulator, clean-all-sections, bare-exit-2, ≥1/inline-check (8 probes for INV-002..006+INV-008), summary conditional.
+
+### Dogfood swap — `scripts/security-gate.sh` (adapted 99 LOC)
+Per-check swap (Chủ nhà decision (b)): replaced `"$PY" scripts/check-hardcoded-secrets.py` → `"$INV_GATE" check secrets` and `"$PY" scripts/check-runtime-secrets.py` → `"$INV_GATE" check runtime`. Build-guard fail-closed added (binary missing → exit 1 with guided message). Original python3 calls preserved as comments (reversible). Python detection block retained for backward compat. `hooks/pre-commit` not modified.
+
+### Deviation — flag surface (document per CLAUDE.md)
+`gate --all` (Rust) ≡ golden `security-gate.sh --mechanical-only`. Full SSH mode (`--include-ssh`) not implemented in Phase 1. `--mechanical-only` / `--include-ssh` flags not exposed in Rust CLI (Sprint 2). Usage-error text deviation from golden `:14` is pre-documented (P001, anchor #9) — exit code 2 matches, text wording differs (clap auto-generated vs golden echo).
+
 ## [Unreleased] — P004 check port + schema — 2026-06-11
 
 ### Added
