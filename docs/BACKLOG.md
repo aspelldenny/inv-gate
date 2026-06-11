@@ -8,22 +8,17 @@
 
 ---
 
-## 🔥 Active sprint: Sprint 1 — Golden-oracle port (Phase 1 CLI)
+## 🔥 Active sprint: Sprint 2 — MCP + distribution (Phase 2-3, chốt dự án)
 
-> **Mục tiêu:** Port 4 check + orchestrator từ `golden/` (797 LOC Python+Bash, frozen từ tarot) sang Rust, parity-tested chống oracle đã pin. Method = doc-rotate precedent: PIN TRƯỚC, PORT SAU.
-> **Kết thúc khi:** `inv-gate gate --all` parity với `golden/security-gate.sh` trên fixture set (same findings + same exit codes), `cargo test` xanh.
-> **Started:** 11/06/2026
+> **Mục tiêu:** Hoàn tất vision PROJECT.md — dual mode (CLI ✅ Sprint 1 + MCP serve) + ship v0.1.0 ra GitHub Releases. Kỷ luật mới (IG-09, lệnh Chủ nhà): XONG 1 PHIẾU = merge main + push + xóa branch NGAY, không stack.
+> **Kết thúc khi:** `inv-gate serve` expose tools check_* + gate qua rmcp stdio (test bằng MCP client thật), `gate --all --profile` chạy sạch trên repo non-webapp, tag v0.1.0 → release CI 3-target xanh trên GitHub.
+> **Started:** 11/06/2026 (ngay sau Sprint 1)
 
-- [x] **P001 — Pin golden oracle.** ✅ 11/06 shipped `d014e44` — fixture set + repin.sh + 16 pins + exit_codes.json, MANIFEST unit-spec (F06: line-only).
-- [x] **P002 — `check secrets` (INV-009)** ✅ 11/06 shipped `65b1140` — CLI skeleton + port 1:1 + parity byte-exact.
-- [x] **P003 — `check runtime` (INV-010)** ✅ 11/06 shipped `8c7bda3` — 18 pattern classes, db-conn lookahead transcription (equivalence proof 15/15), parity byte-exact.
-- [x] **P004 — `check port` (INV-001) + `check schema`** ✅ 11/06 shipped `683098c` — 2 check + parity stdout+stderr byte-exact, schema git-harness 2-commit.
-- [x] **P005 — `gate --all`** ✅ 11/06 shipped `5a82c00` — orchestrator 9-INV port (6 inline check + INV-008 Python→Rust thuần), parity stdout+stderr byte-exact, dogfood swap PER-CHECK (Chủ nhà decision: thay python3 call trong adapted gate bằng binary; gate --all nguyên con cần profile mode → Sprint 2). Proof-commit hook thật + reversibility test pass.
+- [ ] **[NEW] P006 — `serve` (MCP stdio).** rmcp server expose 5 tools: `check_secrets`/`check_runtime`/`check_port`/`check_schema`/`gate` — mỗi tool wrap check function in-process (cùng code path CLI, KHÔNG duplicate logic), trả findings + exit-code-equivalent. Dep mới `rmcp` (đã ghi trong stack CLAUDE.md). Test: spawn server, gọi tool qua stdio client, assert kết quả khớp CLI trên cùng fixture.
+- [ ] **[NEW] P007 — `gate --all` profile mode (từ P005 decision (c)).** Behavior change ĐẦU TIÊN sau parity (method rule 3): cơ chế cho gate chạy trên repo non-webapp (tarot-INV đòi file vắng mặt → skip-with-note thay vì FAIL, hoặc `--profile <type>`). SECURITY SURFACE → Giám sát review bắt buộc trước merge. Golden/pins KHÔNG đổi — parity tests giữ nguyên xanh (profile ≠ default behavior).
+- [ ] **[NEW] P008 — Release v0.1.0.** Version sync Cargo.toml + CHANGELOG (F13), release CI workflow (tag → build 3-target: macOS arm64 + x86_64, linux x86_64 → GitHub Releases), tag v0.1.0 push, verify release assets. Note cross-repo: join sos-kit install.sh BINARIES + pre-commit [4/7] swap là việc repo ~/sos-kit (harvest cuối sprint, ngoài scope repo này).
 
-## 🎯 Next sprint: Sprint 2 — MCP + distribution
-
-- `serve` (rmcp stdio — tools check_* + gate) · release tag v0.1.0 → 3-target CI → join sos-kit `install.sh` BINARIES · sos-kit pre-commit [4/7] swap python→binary (B+3-style cho gate class nếu fail-closed cần)
-- **Profile/flag mode cho `gate --all` đa-repo** (từ P005 decision (c)): golden gate là tarot-specific (INV-004/005/008 đòi file webapp) → exit 1 trên repo non-webapp. Cần `--profile <type>` hoặc skip-INV-khi-file-absent — behavior change, phiếu riêng theo method rule 3, đụng security surface → Giám sát review.
+## 🎯 Next sprint: (trống — Sprint 2 là sprint chốt dự án theo PROJECT.md)
 
 ## 🎯 Next sprint (template): <Sprint name / theme>
 
@@ -70,7 +65,7 @@
 
 <!-- Khi sprint xong, move tóm tắt 1-line vào đây. Giữ tối đa 3 sprint gần nhất. -->
 
-- ✅ **Sprint 1 — Golden-oracle port (Phase 1 CLI)** (11/06/2026) — 5/5 phiếu shipped trong 1 ngày: oracle pinned (16 pins) + 4 check + gate orchestrator port sang Rust, 79 tests xanh, parity byte-exact, dogfood per-check swap live trong pre-commit (python3 killed khỏi [4/7]).
+- ✅ **Sprint 1 — Golden-oracle port (Phase 1 CLI)** (11/06/2026, merged `6828ecc`) — 5/5 phiếu trong 1 ngày: oracle pinned (16 pins) + 4 check + gate 9-INV port sang Rust, 79 tests xanh parity byte-exact, dogfood per-check swap live (python3 killed khỏi [4/7]). History rewritten pre-push (IG-08): P001 `164c2d0` P002 `9c0fa86` P003 `18dab08` P004 `df202ee` P005 `bf002ca`.
 
 ---
 
