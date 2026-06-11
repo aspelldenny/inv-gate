@@ -15,6 +15,13 @@ ships: release-CI tag → GitHub Releases 3-target → join sos-kit `install.sh`
 sos-kit pre-commit `[4/7]` swaps Python call for the binary (kills the last python3
 dependency in the gate chain).
 
+## ⚠️ Dogfood duty (đọc TRƯỚC khi chạy Sprint 1)
+
+This sprint doubles as sos-kit's end-to-end workflow dogfood. **Open `docs/SOS_KIT_FEEDBACK.md`
+FIRST** — 23-point watchlist (W1-W23). Tick items as the run passes them; log kit-findings as
+`[IG-NN]` in that file (kit-bug → routed to ~/sos-kit at harvest; inv-gate tool-bug → own BACKLOG).
+Pre-cleared 2026-06-11: W15 cargo-check phase OK · W16 security gate passes over golden/*.py.
+
 ## Method — golden-oracle port (doc-rotate precedent)
 
 1. **P001 pins the oracle FIRST**: run each `golden/` script on fixtures → freeze findings
