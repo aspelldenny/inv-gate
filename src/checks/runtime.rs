@@ -315,7 +315,9 @@ fn collect_infra_files() -> Vec<PathBuf> {
 }
 
 // golden/check-runtime-secrets.py:228-245 — main()
-pub fn run() -> i32 {
+/// Buffered core — no stdout/stderr side effects; returns CheckOutput.
+/// Called by both CLI run() and MCP serve tools.
+pub fn run_core() -> crate::checks::CheckOutput {
     let mut all_violations: Vec<String> = Vec::new();
     let mut scanned = 0usize;
 
@@ -343,13 +345,24 @@ pub fn run() -> i32 {
 
     if !all_violations.is_empty() {
         // golden:243-244
-        println!("{}", all_violations.join("\n"));
-        1
+        let text = format!("{}\n", all_violations.join("\n"));
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     } else {
         // golden:245
-        println!("INV-010: PASS (0 runtime/infra secrets, {scanned} files scanned)");
-        0
+        crate::checks::CheckOutput {
+            stdout: format!("INV-010: PASS (0 runtime/infra secrets, {scanned} files scanned)\n"),
+            stderr: String::new(),
+            code: 0,
+        }
     }
+}
+
+/// CLI wrapper — prints buffered output to real stdout/stderr, returns exit code.
+pub fn run() -> i32 {
+    let out = run_core();
+    print!("{}", out.stdout);
+    eprint!("{}", out.stderr);
+    out.code
 }
 
 // ── Unit tests (Task 3 Lưu ý 4 — BẮT BUỘC per phiếu V2) ─────────────────────

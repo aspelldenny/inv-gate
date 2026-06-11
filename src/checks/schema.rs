@@ -92,18 +92,26 @@ fn find_destructive(diff: &str) -> Vec<String> {
 }
 
 // golden/check-schema-safety.sh main logic — 6 branch table (anchor #12 ✅)
-pub fn run() -> i32 {
+/// Buffered core — no stdout/stderr side effects; returns CheckOutput.
+/// Called by both CLI run() and MCP serve tools.
+pub fn run_core() -> crate::checks::CheckOutput {
     // Branch A — golden/check-schema-safety.sh:18-20
     let allow_data_loss = std::env::var("ALLOW_DATA_LOSS").unwrap_or_else(|_| "false".to_string());
     if allow_data_loss == "true" {
-        println!("{}", BYPASS_ECHO);
-        return 0;
+        return crate::checks::CheckOutput {
+            stdout: format!("{}\n", BYPASS_ECHO),
+            stderr: String::new(),
+            code: 0,
+        };
     }
 
     // Branch B — golden/check-schema-safety.sh:25-28
     if !std::path::Path::new(SCHEMA_FILE).exists() {
-        println!("\u{274C} {} not found \u{2014} cannot check schema safety.", SCHEMA_FILE);
-        return 1;
+        return crate::checks::CheckOutput {
+            stdout: format!("\u{274C} {} not found \u{2014} cannot check schema safety.\n", SCHEMA_FILE),
+            stderr: String::new(),
+            code: 1,
+        };
     }
 
     // Fallback chain — golden/check-schema-safety.sh:32-34 (Branch C/D/E/F)
@@ -112,8 +120,11 @@ pub fn run() -> i32 {
     // Branch C + F — golden/check-schema-safety.sh:36-39
     // DIFF empty: no parent commit / both git calls fail / no change in schema.
     if diff.trim().is_empty() {
-        println!("No schema diff vs HEAD~1 \u{2014} safe.");
-        return 0;
+        return crate::checks::CheckOutput {
+            stdout: "No schema diff vs HEAD~1 \u{2014} safe.\n".to_string(),
+            stderr: String::new(),
+            code: 0,
+        };
     }
 
     // golden/check-schema-safety.sh:46-49 — find destructive lines
@@ -121,21 +132,34 @@ pub fn run() -> i32 {
 
     if !destructive.is_empty() {
         // Branch E — golden/check-schema-safety.sh:51-60
-        println!("\u{274C} DESTRUCTIVE SCHEMA CHANGE DETECTED in {}:", SCHEMA_FILE);
-        println!("{}", destructive.join("\n"));
-        println!();
-        println!("Field/model removed \u{2192} may cause DROP COLUMN/TABLE on db push.");
-        println!();
-        println!("To proceed:");
-        println!("  CI:    re-run workflow_dispatch with input data_loss_ack=true.");
-        println!("  Local: verify backup < 24h, then ALLOW_DATA_LOSS=true bash scripts/check-schema-safety.sh");
-        let _ = io::stdout().flush();
-        1
+        let mut out = String::new();
+        out.push_str(&format!("\u{274C} DESTRUCTIVE SCHEMA CHANGE DETECTED in {}:\n", SCHEMA_FILE));
+        out.push_str(&format!("{}\n", destructive.join("\n")));
+        out.push('\n');
+        out.push_str("Field/model removed \u{2192} may cause DROP COLUMN/TABLE on db push.\n");
+        out.push('\n');
+        out.push_str("To proceed:\n");
+        out.push_str("  CI:    re-run workflow_dispatch with input data_loss_ack=true.\n");
+        out.push_str("  Local: verify backup < 24h, then ALLOW_DATA_LOSS=true bash scripts/check-schema-safety.sh\n");
+        crate::checks::CheckOutput { stdout: out, stderr: String::new(), code: 1 }
     } else {
         // Branch D — golden/check-schema-safety.sh:63
-        println!("Schema diff present but no destructive pattern (field/model removed) detected \u{2014} safe.");
-        0
+        crate::checks::CheckOutput {
+            stdout: "Schema diff present but no destructive pattern (field/model removed) detected \u{2014} safe.\n".to_string(),
+            stderr: String::new(),
+            code: 0,
+        }
     }
+}
+
+/// CLI wrapper — prints buffered output to real stdout/stderr, returns exit code.
+pub fn run() -> i32 {
+    let out = run_core();
+    print!("{}", out.stdout);
+    eprint!("{}", out.stderr);
+    // Flush stdout before exit (preserved for Branch E)
+    let _ = io::stdout().flush();
+    out.code
 }
 
 // ── Unit tests (Task 5 — 7 probes BẮT BUỘC per phiếu V2) ────────────────────

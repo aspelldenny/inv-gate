@@ -4,8 +4,11 @@
 // Accumulator semantics: run all sections, count PASS/FAIL/WARN, exit 1 iff FAIL>0.
 // DO NOT add parallel execution, change section order, or alter output wording without
 // a separate phiếu + Tầng 1 review (security surface — CLAUDE.md).
+//
+// P006 REFACTOR: run_core() is the buffered core used by CLI run() and MCP serve.
+// run_section_buf() writes section output into a mutable String buffer.
+// Inline fns (inv_002..inv_008) now return (stdout_str, exit_code).
 
-use std::io::{self, Write};
 
 // golden/security-gate.sh:18-21 — PASS/FAIL/WARN counters + FAILED_INVS list
 struct State {
@@ -26,62 +29,75 @@ impl State {
     }
 }
 
-// golden/security-gate.sh:23-37 — run() wrapper: print header + PASS/FAIL + blank line,
-// increment counters. Returns exit code of inner fn (0=pass, non-0=fail).
-fn run_section<F>(state: &mut State, inv: &str, desc: &str, f: F)
-where
-    F: FnOnce() -> i32,
+// golden/security-gate.sh:23-37 — buffered section runner.
+// Appends header, calls inner fn (which returns (stdout, stderr, code)), appends PASS/FAIL
+// + blank line to stdout buffer; stderr from inner fn goes to gate stderr buffer.
+// Returns exit code of inner fn.
+fn run_section_buf<F>(
+    buf_out: &mut String,
+    buf_err: &mut String,
+    state: &mut State,
+    inv: &str,
+    desc: &str,
+    f: F,
+) where
+    F: FnOnce() -> crate::checks::CheckOutput,
 {
     // golden/security-gate.sh:27
-    println!("--- {}: {} ---", inv, desc);
-    let code = f();
-    if code == 0 {
+    buf_out.push_str(&format!("--- {}: {} ---\n", inv, desc));
+    let inner = f();
+    // Inner stdout goes into gate stdout between header and PASS/FAIL
+    buf_out.push_str(&inner.stdout);
+    // Inner stderr goes to gate stderr buffer (WARN from port check lives here)
+    buf_err.push_str(&inner.stderr);
+    if inner.code == 0 {
         // golden/security-gate.sh:29-30
-        println!("  PASS");
+        buf_out.push_str("  PASS\n");
         state.pass += 1;
     } else {
         // golden/security-gate.sh:32-34
-        println!("  FAIL");
+        buf_out.push_str("  FAIL\n");
         state.fail += 1;
         state.failed_invs.push(inv.to_string());
     }
     // golden/security-gate.sh:36 — blank line after each section
-    println!();
+    buf_out.push('\n');
 }
 
-/// `inv-gate gate --all` — parity port of golden/security-gate.sh --mechanical-only branch.
-///
-/// Returns 0 (all pass) or 1 (any fail). Exit 2 is clap-only (src/main.rs).
-pub fn run() -> i32 {
+/// Buffered core — no stdout/stderr side effects; returns CheckOutput.
+/// Called by both CLI run() and MCP serve.
+pub fn run_core() -> crate::checks::CheckOutput {
+    let mut buf_out = String::new();
+    let mut buf_err = String::new();
     let mut state = State::new();
 
     // golden/security-gate.sh:54-55 — INV-001: port-bind check (in-process, not subprocess)
-    run_section(&mut state, "INV-001", "No host-bind 0.0.0.0 except nginx 80/443", || {
-        crate::checks::port::run()
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-001", "No host-bind 0.0.0.0 except nginx 80/443", || {
+        crate::checks::port::run_core()
     });
 
     // golden/security-gate.sh:57-72 — INV-002: no :latest tag (inline bash)
-    run_section(&mut state, "INV-002", "No :latest tag (except umami/portainer exception)", || {
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-002", "No :latest tag (except umami/portainer exception)", || {
         inv_002()
     });
 
     // golden/security-gate.sh:74-86 — INV-003: no real secret in .env.example (inline bash)
-    run_section(&mut state, "INV-003", "No real secret value in .env.example", || {
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-003", "No real secret value in .env.example", || {
         inv_003()
     });
 
     // golden/security-gate.sh:88-111 — INV-004: .env.* gitignored + never committed (inline bash)
-    run_section(&mut state, "INV-004", ".env.{production,staging,backup,local} gitignored + never committed", || {
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-004", ".env.{production,staging,backup,local} gitignored + never committed", || {
         inv_004()
     });
 
     // golden/security-gate.sh:112-123 — INV-005: Sentry config scrubs Authorization (inline bash)
-    run_section(&mut state, "INV-005", "Sentry config has beforeSend/beforeBreadcrumb scrubber", || {
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-005", "Sentry config has beforeSend/beforeBreadcrumb scrubber", || {
         inv_005()
     });
 
     // golden/security-gate.sh:125-136 — INV-006: astro-service CORS not wildcard (inline bash)
-    run_section(&mut state, "INV-006", "astro-service CORS not wildcard", || {
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-006", "astro-service CORS not wildcard", || {
         inv_006()
     });
 
@@ -90,44 +106,56 @@ pub fn run() -> i32 {
     // → ZERO output in mechanical-only mode
 
     // golden/security-gate.sh:176-193 — INV-008: internal services use expose: not ports: (inline Python→Rust)
-    run_section(&mut state, "INV-008", "Internal services use expose: not ports:", || {
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-008", "Internal services use expose: not ports:", || {
         inv_008()
     });
 
     // golden/security-gate.sh:195-197 — INV-009: secrets check (in-process, not subprocess)
-    run_section(&mut state, "INV-009", "No hardcoded secret in src/ + astro-service/ source files", || {
-        crate::checks::secrets::run()
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-009", "No hardcoded secret in src/ + astro-service/ source files", || {
+        crate::checks::secrets::run_core()
     });
 
     // golden/security-gate.sh:199-201 — INV-010: runtime secrets check (in-process, not subprocess)
-    run_section(&mut state, "INV-010", "No secret in runtime state + infra files", || {
-        crate::checks::runtime::run()
+    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-010", "No secret in runtime state + infra files", || {
+        crate::checks::runtime::run_core()
     });
 
     // golden/security-gate.sh:203-209 — Summary
     // golden:204
-    println!("====================================");
+    buf_out.push_str("====================================\n");
     // golden:205
-    println!("Security gate: {} passed, {} failed, {} warnings", state.pass, state.fail, state.warn);
+    buf_out.push_str(&format!(
+        "Security gate: {} passed, {} failed, {} warnings\n",
+        state.pass, state.fail, state.warn
+    ));
     if state.fail > 0 {
         // golden:206-208
         let inv_list: Vec<&str> = state.failed_invs.iter().map(|s| s.as_str()).collect();
-        println!("Failed invariants: {}", inv_list.join(" "));
-        // golden:208-209
-        return 1;
+        buf_out.push_str(&format!("Failed invariants: {}\n", inv_list.join(" ")));
+        return crate::checks::CheckOutput { stdout: buf_out, stderr: buf_err, code: 1 };
     }
     // golden:210
-    0
+    crate::checks::CheckOutput { stdout: buf_out, stderr: buf_err, code: 0 }
+}
+
+/// `inv-gate gate --all` — CLI wrapper.
+/// Prints buffered output to real stdout/stderr, returns exit code.
+pub fn run() -> i32 {
+    let out = run_core();
+    print!("{}", out.stdout);
+    eprint!("{}", out.stderr);
+    out.code
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inline check private fns — each ports one bash function from golden
+// Inline check private fns — each ports one bash function from golden.
+// P006 REFACTOR: each fn now returns CheckOutput (stdout buf, stderr buf, code).
 // golden/security-gate.sh:<cite-range>
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// INV-002 — no :latest tag (except umami/portainer exception)
 /// golden/security-gate.sh:58-71
-fn inv_002() -> i32 {
+fn inv_002() -> crate::checks::CheckOutput {
     // golden:60 — scan these compose files
     let compose_files = &[
         "docker-compose.yml",
@@ -160,23 +188,21 @@ fn inv_002() -> i32 {
 
     if findings.is_empty() {
         // golden:65 — return 0
-        0
+        crate::checks::CheckOutput::default()
     } else {
         // golden:68-69 — echo remaining, return 1
-        for f in &findings {
-            println!("{}", f);
-        }
-        1
+        let text = format!("{}\n", findings.join("\n"));
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     }
 }
 
 /// INV-003 — no real secret value in .env.example
 /// golden/security-gate.sh:75-85
-fn inv_003() -> i32 {
+fn inv_003() -> crate::checks::CheckOutput {
     // golden:76-77 — grep -E '^[A-Z_]+=[^#[:space:]]' .env.example 2>/dev/null
     let content = match std::fs::read_to_string(".env.example") {
         Ok(c) => c,
-        Err(_) => return 0, // 2>/dev/null → missing file = no violations
+        Err(_) => return crate::checks::CheckOutput::default(), // 2>/dev/null → missing file = no violations
     };
 
     // golden:77-78 — allowlist: patterns that are OK even if they match the base regex
@@ -239,18 +265,16 @@ fn inv_003() -> i32 {
     }
 
     if findings.is_empty() {
-        0
+        crate::checks::CheckOutput::default()
     } else {
-        for f in &findings {
-            println!("{}", f);
-        }
-        1
+        let text = format!("{}\n", findings.join("\n"));
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     }
 }
 
 /// INV-004 — .env.{production,staging,backup,local} gitignored + never committed
 /// golden/security-gate.sh:89-110
-fn inv_004() -> i32 {
+fn inv_004() -> crate::checks::CheckOutput {
     // golden:91-99 — check .gitignore for each env file
     let env_files = &["production", "staging", "backup", "local"];
     let mut missing: Vec<String> = Vec::new();
@@ -272,8 +296,8 @@ fn inv_004() -> i32 {
 
     if !missing.is_empty() {
         // golden:97-99
-        println!("Missing in .gitignore: {}", missing.join(" "));
-        return 1;
+        let text = format!("Missing in .gitignore: {}\n", missing.join(" "));
+        return crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 };
     }
 
     // golden:101-108 — git log history check
@@ -299,23 +323,24 @@ fn inv_004() -> i32 {
                 .collect();
             if !leaked.is_empty() {
                 // golden:105-107
-                println!("Historic leak detected:");
+                let mut text = "Historic leak detected:\n".to_string();
                 for l in leaked {
-                    println!("{}", l);
+                    text.push_str(l);
+                    text.push('\n');
                 }
-                return 1;
+                return crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 };
             }
         }
         Err(_) => {} // golden: 2>/dev/null — git not available → no leak
     }
 
     // golden:109
-    0
+    crate::checks::CheckOutput::default()
 }
 
 /// INV-005 — Sentry config has beforeSend/beforeBreadcrumb scrubber
 /// golden/security-gate.sh:113-122
-fn inv_005() -> i32 {
+fn inv_005() -> crate::checks::CheckOutput {
     // golden:115-116 — grep -rnE "beforeBreadcrumb|beforeSend" src/lib/sentry.ts sentry.*.config.* 2>/dev/null
     let targets: Vec<String> = {
         let mut v = vec!["src/lib/sentry.ts".to_string()];
@@ -352,21 +377,21 @@ fn inv_005() -> i32 {
 
     if found_any {
         // golden:121 — return 0
-        0
+        crate::checks::CheckOutput::default()
     } else {
         // golden:118-119
-        println!("No beforeSend/beforeBreadcrumb handler found in Sentry config files");
-        1
+        let text = "No beforeSend/beforeBreadcrumb handler found in Sentry config files\n".to_string();
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     }
 }
 
 /// INV-006 — astro-service CORS not wildcard
 /// golden/security-gate.sh:126-135
-fn inv_006() -> i32 {
+fn inv_006() -> crate::checks::CheckOutput {
     // golden:127-128 — grep -nE "origins.*\*|allow_origin.*\*|CORS\(.*\*" astro-service/app.py 2>/dev/null
     let content = match std::fs::read_to_string("astro-service/app.py") {
         Ok(c) => c,
-        Err(_) => return 0, // 2>/dev/null → missing = PASS
+        Err(_) => return crate::checks::CheckOutput::default(), // 2>/dev/null → missing = PASS
     };
 
     let mut findings: Vec<String> = Vec::new();
@@ -383,13 +408,11 @@ fn inv_006() -> i32 {
 
     if findings.is_empty() {
         // golden:133 — return 0
-        0
+        crate::checks::CheckOutput::default()
     } else {
         // golden:131-132
-        for f in &findings {
-            println!("{}", f);
-        }
-        1
+        let text = format!("{}\n", findings.join("\n"));
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     }
 }
 
@@ -400,7 +423,7 @@ fn inv_006() -> i32 {
 /// Rust port: manual line-based parse of docker-compose.yml services block.
 /// Parity: same service list, same output format, same exit codes.
 /// No `serde_yaml` dep — manual line-based state machine (TIDAK dep mới, phiếu constraint).
-fn inv_008() -> i32 {
+fn inv_008() -> crate::checks::CheckOutput {
     // golden:181 — open docker-compose.yml
     let content = match std::fs::read_to_string("docker-compose.yml") {
         Ok(c) => c,
@@ -412,10 +435,8 @@ fn inv_008() -> i32 {
             // are 'app'/'nginx', neither is in internal list). Missing file → PASS (no violations
             // to report) in the fixture context. But fail-safe is correct for missing compose.
             // We use exit 1 to match golden's python exception behavior.
-            let stderr = io::stderr();
-            let mut err = stderr.lock();
-            let _ = writeln!(err, "docker-compose.yml: file not found");
-            return 1;
+            let stderr = "docker-compose.yml: file not found\n".to_string();
+            return crate::checks::CheckOutput { stdout: String::new(), stderr, code: 1 };
         }
     };
 
@@ -490,12 +511,11 @@ fn inv_008() -> i32 {
 
     if violations.is_empty() {
         // golden: sys.exit(0) path (implicitly — no violations)
-        0
+        crate::checks::CheckOutput::default()
     } else {
         // golden:188-189 — print violations + sys.exit(1)
-        for v in &violations {
-            println!("{}", v);
-        }
-        1
+        let text = format!("{}\n", violations.join("\n"));
+        crate::checks::CheckOutput { stdout: text, stderr: String::new(), code: 1 }
     }
 }
+

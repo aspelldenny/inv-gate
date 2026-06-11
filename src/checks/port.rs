@@ -99,17 +99,20 @@ fn classify(spec: &str) -> String {
 }
 
 // golden/check-port-bind.py:55-80 — main logic
-pub fn run() -> i32 {
+/// Buffered core — no stdout/stderr side effects; returns CheckOutput.
+/// Called by both CLI run() and MCP serve tools.
+pub fn run_core() -> crate::checks::CheckOutput {
     let port_re = port_line_re();
     let num_re = numeric_re();
     let mut violations: Vec<String> = Vec::new();
+    let mut stderr_buf = String::new();
 
     for fname in COMPOSE_FILES {
         let path = std::path::Path::new(fname);
 
         // golden/check-port-bind.py:59-61 — missing file: WARN stderr, continue (no violation, no exit 1)
         if !path.exists() {
-            eprintln!("WARN: {} not found, skipping", fname);
+            stderr_buf.push_str(&format!("WARN: {} not found, skipping\n", fname));
             continue;
         }
 
@@ -121,13 +124,21 @@ pub fn run() -> i32 {
                 Err(e) => {
                     // Non-UTF-8: error to stderr, exit non-zero — mirrors Python uncaught UnicodeDecodeError.
                     // golden crash exit code = 1 (Python uncaught exception default).
-                    eprintln!("error reading {}: {}", fname, e);
-                    return 1;
+                    stderr_buf.push_str(&format!("error reading {}: {}\n", fname, e));
+                    return crate::checks::CheckOutput {
+                        stdout: String::new(),
+                        stderr: stderr_buf,
+                        code: 1,
+                    };
                 }
             },
             Err(e) => {
-                eprintln!("error reading {}: {}", fname, e);
-                return 1;
+                stderr_buf.push_str(&format!("error reading {}: {}\n", fname, e));
+                return crate::checks::CheckOutput {
+                    stdout: String::new(),
+                    stderr: stderr_buf,
+                    code: 1,
+                };
             }
         };
 
@@ -164,15 +175,26 @@ pub fn run() -> i32 {
 
     // golden/check-port-bind.py:76-79
     if !violations.is_empty() {
-        println!("{}", violations.join("\n"));
-        // Flush stdout before exit
-        let _ = io::stdout().flush();
-        1
+        let stdout = format!("{}\n", violations.join("\n"));
+        crate::checks::CheckOutput { stdout, stderr: stderr_buf, code: 1 }
     } else {
         // golden/check-port-bind.py:79
-        println!("INV-001: PASS (port bindings clean)");
-        0
+        crate::checks::CheckOutput {
+            stdout: "INV-001: PASS (port bindings clean)\n".to_string(),
+            stderr: stderr_buf,
+            code: 0,
+        }
     }
+}
+
+/// CLI wrapper — prints buffered output to real stdout/stderr, returns exit code.
+pub fn run() -> i32 {
+    let out = run_core();
+    print!("{}", out.stdout);
+    eprint!("{}", out.stderr);
+    // Flush stdout before exit (preserved from original)
+    let _ = io::stdout().flush();
+    out.code
 }
 
 // ── Unit tests (Task 4 — 12 probes BẮT BUỘC per phiếu V2) ───────────────────
