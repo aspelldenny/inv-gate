@@ -2,7 +2,24 @@
 
 Format loosely follows Keep a Changelog.
 
-## [Unreleased] — P007 gate --skip-absent — 2026-06-11
+## [0.1.0] — 2026-06-11
+
+### P008 — Release CI 3-target + version freeze (this release)
+
+- Release CI (`.github/workflows/release.yml`): 3-target matrix confirmed mirror-siblings convention
+  (mac-arm64 / linux-x64 / win-x64). Chủ nhà ruling 11/06: scope = windows + macos + linux.
+  BACKLOG wording `mac-x64` = lỗi diễn giải (cũ), corrected. Matrix was already correct at
+  bootstrap (commit f2946c4) — Task 1 verify diff = EMPTY (zero workflow changes).
+- Asset naming contract: `inv-gate-<target-triple>` (+`.exe` for win), consumed by
+  `sos-kit install.sh:65 ${bin}-${TARGET}${EXT}`. EXT logic preserved verbatim.
+- Version freeze F13: `Cargo.toml` version = `0.1.0` (set at bootstrap) = CHANGELOG latest release.
+  No Cargo.toml bump needed — confirm only.
+- Tag `v0.1.0` pushed → GitHub Release CI (3 jobs parallel) → 3 assets:
+  `inv-gate-aarch64-apple-darwin`, `inv-gate-x86_64-unknown-linux-gnu`,
+  `inv-gate-x86_64-pc-windows-msvc.exe`.
+- Ship-test transcript: `docs/discoveries/P008.md` (acceptance (c) — CHẠY ĐƯỢC ≠ SHIP ĐƯỢC).
+
+### P007 — gate --skip-absent — 2026-06-11
 
 ### Added (behavior change — first deviation from golden parity; method rule 3 CLAUDE.md)
 - `gate --all --skip-absent` (bool flag, default off): opt-in skip for allowlisted INVs whose
@@ -37,7 +54,7 @@ Format loosely follows Keep a Changelog.
 - `src/checks/*.rs`, `golden/`, `tests/golden/`: diff rỗng tuyệt đối (flag lives in gate orchestrator only).
 - `Cargo.toml`, `Cargo.lock`: no new deps, no version bump (F13 — P008).
 
-## [Unreleased] — P006 serve MCP stdio — 2026-06-11
+### P006 — serve MCP stdio — 2026-06-11
 
 ### Added
 - `src/serve.rs` — MCP stdio server via rmcp 1.7.0. Exposes 5 tools: `check_secrets` / `check_runtime` / `check_port` / `check_schema` / `gate`. Each tool calls the corresponding `run_core()` in-process (zero subprocess, same code path as CLI). Response: 1 JSON text content item with 4 fields: `exit_code` (i32), `is_clean` (bool), `findings` (stdout text), `stderr` (stderr text, e.g. WARN from port). `isError: false` for check findings (tool ran successfully); `true` only on internal error. CWD contract: client launches server with cwd = repo to scan.
@@ -56,7 +73,7 @@ Format loosely follows Keep a Changelog.
 ### Deviation — tokio `time` feature
 rmcp 1.7.0 uses `tokio::time` internally (not documented in crate README). Added `"time"` to tokio features to satisfy runtime requirement. No behavior change to CLI paths.
 
-## [Unreleased] — P005 gate --all + dogfood swap — 2026-06-11
+### P005 — gate --all + dogfood swap — 2026-06-11
 
 ### Added
 - `src/gate.rs` — orchestrator port of `golden/security-gate.sh --mechanical-only` branch (P005). In-process calls: `checks::{port,secrets,runtime}::run()` (tuần tự, single-thread, no subprocess). 6 inline check private fns: `inv_002` (`:latest` tag — INV-002), `inv_003` (.env.example real value — INV-003), `inv_004` (.env.* gitignored + history — INV-004), `inv_005` (Sentry beforeSend/beforeBreadcrumb — INV-005), `inv_006` (astro-service CORS wildcard — INV-006), `inv_008` (internal services expose vs ports — INV-008, Python→Rust-native). INV-007 skipped (mechanical-only — zero output). Accumulator semantics: all sections run, exit 1 iff FAIL>0. Summary verbatim: `====...` + `Security gate: $PASS passed, $FAIL failed, $WARN warnings` + `Failed invariants: ...` only when FAIL>0.
@@ -69,7 +86,7 @@ Per-check swap (Chủ nhà decision (b)): replaced `"$PY" scripts/check-hardcode
 ### Deviation — flag surface (document per CLAUDE.md)
 `gate --all` (Rust) ≡ golden `security-gate.sh --mechanical-only`. Full SSH mode (`--include-ssh`) not implemented in Phase 1. `--mechanical-only` / `--include-ssh` flags not exposed in Rust CLI (Sprint 2). Usage-error text deviation from golden `:14` is pre-documented (P001, anchor #9) — exit code 2 matches, text wording differs (clap auto-generated vs golden echo).
 
-## [Unreleased] — P004 check port + schema — 2026-06-11
+### P004 — check port + schema — 2026-06-11
 
 ### Added
 - `src/checks/port.rs` — INV-001 port of `golden/check-port-bind.py` (parity 1:1). COMPOSE_FILES (3 hardcoded paths — order is output order), ALLOWED_PUBLIC set (`80:80`, `443:443`), 4-layer line-based parse mechanism (PORT_LINE_RE / numeric filter / is_in_ports_block backward-walk / classify 2/3/N-part), WARN-stderr on missing file, output format `{fname}:{lineno}: INV-001 violated -- {reason}` — all verbatim with `golden:line` citations. Non-UTF-8: error-path exit non-zero (no panic-101).
@@ -88,7 +105,7 @@ Port check emits WARN lines to stderr for each missing compose file — `port--{
 ### Fallback chain deviation note (O1.2 — parity-first, improve later)
 `golden/check-schema-safety.sh:33` uses SHA `4b825dc8669f8c0` (15 chars) — NOT the standard empty-tree SHA `4b825dc642cb6eb9a060e54bf8d69288fbee4904`. Both git calls fail on 1-commit/fresh repo → `echo ""` fires. Ported AS-IS per Luật chơi 1 (parity before improvement). Improvement candidate added to BACKLOG.
 
-## [Unreleased] — P003 check runtime — 2026-06-11
+### P003 — check runtime — 2026-06-11
 
 ### Added
 - `src/checks/runtime.rs` — INV-010 port of `golden/check-runtime-secrets.py` (parity 1:1). RUNTIME_FILES (`.git/config`, `.mcp.json`, `.claude/settings.local.json`), INFRA_GLOBS (read_dir+sort — Python 3.12+ sorted glob, no `glob` crate), INFRA_TOP_LEVEL, 15 prefix patterns + 1 generic, allowlist (golden:119-135), SKIP_EXTENSIONS, masking, output format — all verbatim with `golden:line` citations. Sub-mech F (dotfile token leak, golden:39) classification noted in Discovery.
@@ -99,7 +116,7 @@ Port check emits WARN lines to stderr for each missing compose file — `port--{
 ### Pattern deviation (V2 — O1.1, security surface — Giám sát review required)
 4 `db-conn-*` patterns (`golden:100-103`) contained negative lookahead `(?!\$)` — unsupported by `regex` crate. Resolution: **drop exactly the token `(?!\$)`**, keep every other character verbatim. Equivalence: the immediately-following char class `[^@/\s\$]{8,}` already excludes `$`, so the lookahead is redundant (the formal language accepted by both versions is identical). Proof: 15/15 adversarial oracle cases (Debate Log Turn 2) + proof tests g1-g4 (green). No dep added, no behavior change.
 
-## [Unreleased] — P002 check secrets — 2026-06-11
+### P002 — check secrets — 2026-06-11
 
 ### Added
 - `src/checks/secrets.rs` — INV-009 port of `golden/check-hardcoded-secrets.py` (parity 1:1). All patterns, allowlist (8 entries), skip rules (test-file / path-level / comment-line), masking, and output format preserved verbatim with `golden:line` citations.
@@ -107,7 +124,7 @@ Port check emits WARN lines to stderr for each missing compose file — `port--{
 - `src/checks/mod.rs` — checks module layout (1 module / INV, per ARCHITECTURE.md).
 - `tests/parity_secrets.rs` — 2 parity tests (dirty/clean) byte-exact vs `tests/golden/pins/`; 2 mandatory unit tests (V2): `should_skip_path(src/generated/)` + comment-line skip.
 
-## [Unreleased] — P001 pin golden oracle — 2026-06-11
+### P001 — pin golden oracle — 2026-06-11
 
 ### Added
 - `tests/golden/fixtures/` — fixture set (dirty/clean) for 4 INV checks + orchestrator gate.
