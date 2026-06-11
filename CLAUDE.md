@@ -30,6 +30,10 @@ Pre-cleared 2026-06-11: W15 cargo-check phase OK · W16 security gate passes ove
    same exit codes). Spec units explicitly (char vs byte — F06 lesson).
 3. Behavior changes (better patterns, new INV) come AFTER parity, as separate phiếu.
 4. `golden/` is read-only reference — never "fix" it.
+- **Deviations from golden (intentional):** P010 — `check schema` fallback uses correct
+  empty-tree SHA-1 40-char `4b825dc642cb6eb9a060e54bf8d69288fbee4904` instead of golden's
+  truncated 15-char `4b825dc8669f8c0` (golden bug — O1.2, docs/discoveries/P004.md).
+  `golden/` retains the bug as read-only reference, per rule 4 above.
 
 ## Rules
 
