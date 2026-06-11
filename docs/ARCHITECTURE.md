@@ -42,3 +42,31 @@ pre-commit `[4/7]` → `bash scripts/security-gate.sh --mechanical-only` (adapte
   `target/release/inv-gate check secrets` (INV-009) + `target/release/inv-gate check runtime` (INV-010);
   python3 calls removed (reversible — original calls kept as comments).
 `gate --all` = parity-proven fixture-based (pins `gate--{dirty,clean}`).
+
+## Distribution (v0.1.0, shipped P008)
+
+Release CI: `.github/workflows/release.yml` — trigger `push: tags: ["v*"]`, 3 jobs parallel,
+no test step in CI (intentional: pre-commit + nghiệm thu local cover; workflow kept minimal
+as kit-family convention).
+
+**3-target matrix (kit-family mirror-siblings, Chủ nhà ruling 2026-06-11):**
+
+| Target triple | Runner | Asset name |
+|---|---|---|
+| `aarch64-apple-darwin` | `macos-14` | `inv-gate-aarch64-apple-darwin` |
+| `x86_64-unknown-linux-gnu` | `ubuntu-22.04` | `inv-gate-x86_64-unknown-linux-gnu` |
+| `x86_64-pc-windows-msvc` | `windows-2022` | `inv-gate-x86_64-pc-windows-msvc.exe` |
+
+**Asset naming contract:** `inv-gate-<target-triple>` (+`.exe` for Windows) —
+consumed by `sos-kit install.sh:65`: `${bin}-${TARGET}${EXT}`. EXT logic in workflow MUST
+be preserved on any workflow edit (Tầng 1 contract).
+
+**Release profile:** `strip = true`, `lto = true`, `opt-level = 3` (Cargo.toml release profile).
+Binary size target: < 6 MB (PROJECT.md success criterion #5). Local arm64 release binary: ~2.8 MB.
+
+**Exit-code contract (pre-commit API):** `0` clean, `1` findings, `2` usage/config error.
+Pre-commit hooks depend on this — document any deviation in CHANGELOG + CLAUDE.md.
+See also CLAUDE.md §Rules for per-script exit-2 deviation note (P001).
+
+**Intel-Mac gap (IG-10):** `x86_64-apple-darwin` not in matrix (no `Darwin-x86_64` mapping
+in `sos-kit install.sh`). Kit-level feedback logged IG-10 for sos-kit harvest. Out of scope here.
