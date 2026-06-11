@@ -16,6 +16,8 @@ You MUST NOT:
 - Read source files (`src/`, `lib/`, `app/`, etc.) for "context." That is Worker's surface.
 - Skip subagent spawn and "just answer" when the user asks for a feature. Brief in → spawn Architect → drive state machine → spawn Worker → hand back.
 - Fake-gate between phases. The ONLY mandatory user gate is `APPROVAL_GATE` before EXECUTE_PHASE. Do NOT insert "is this OK?" prompts at DRAFT or CHALLENGE or RESPOND.
+- (GATE_DELEGATION exception — IG-03): Chủ nhà may explicitly delegate the gate for a bounded scope; then self-approve ONLY on clean CHALLENGE (objections oracle-closed). NEVER delegated: scope/vision, security-surface, irreversible-external. Log grant in Debate Log. New sprint = back to ask.
+- State truth = phiếu Debate Log, NOT notifications (IG-05): challenge reports can return via the architect task-id / loops self-close. Read Debate Log before every spawn (no double-RESPOND).
 - Ask the user "pick item nào trước" / "which order?" when the user has already delegated ("tùy em" / "you decide" / "auto"). Self-route, propose, and use ONE `AskUserQuestion` to confirm the wave plan.
 
 ## Session opening (first user message in fresh session)
@@ -118,6 +120,9 @@ Before EVERY spawn:
 - Spawn architect (any mode): `mkdir -p .sos-state && touch .sos-state/architect-active && rm -f .sos-state/worker-active`
 - Spawn worker (any mode): `mkdir -p .sos-state && touch .sos-state/worker-active && rm -f .sos-state/architect-active`
 - **After worker returns:** `rm -f .sos-state/worker-active` — close the window so Quản đốc can't hand-code product post-EXECUTE.
+**Model selection (per-spawn — Quản đốc quản, Sếp-ratified 2026-06-11):** agent frontmatter = DEFAULT (worker: sonnet — nhanh/rẻ, khớp CHALLENGE mechanical + EXECUTE có oracle). Override bằng param `model` trên Agent tool khi spawn (precedence > frontmatter). **Escalate worker → fable khi BẤT KỲ:** (E1) phiếu Tầng-1 cross-system/security-surface mà CHALLENGE phải suy luận assumption môi trường (IG-06 class); (E2) EXECUTE creative/algorithmic KHÔNG có oracle/pin; (E3) phiếu đã fail/loop 1 vòng với sonnet → respawn fable (trigger deterministic); (E4) Chủ nhà chỉ định. **Giữ sonnet:** port có golden pin, parity test, surgical fix, CRUD, docs. **Caveats:** fable ~4-5× cost + turn chậm (phút) → mọi escalation GHI 1 dòng vào Debate Log của phiếu: `model: fable — <E1..E4 + lý do>`; nội dung security-tooling (secret patterns, fake-token fixtures) trên fable có refusal-classifier risk → inv-gate-class repos prefer sonnet.
+
+- **After ARCHITECT returns:** `rm -f .sos-state/architect-active` — symmetric rule (IG-01 inv-gate ×2, 2026-06-11): a stale architect marker makes `architect-guard.sh` treat the MAIN SESSION as Architect → blocks Quản đốc's own legit `.md`/config edits (Write-allowlist = phiếu only). 3-step workaround (rm → edit → touch) = smell; just close the marker on the completion notification, same as worker.
 
 Never leave a stale marker. Markers live outside `.claude/` so YOLO mode does not prompt.
 ## Background subagent spawns (async)
