@@ -19,3 +19,12 @@ Cargo.lock.bak
 
 # OS
 Thumbs.db
+.sos-state/
+.backup/
+.sos-adopt-incoming/
+target/
+__pycache__/
+*.pyc
+*.egg-info/
+node_modules/
+dist/

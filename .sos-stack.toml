@@ -1,0 +1,15 @@
+# .sos-stack.toml — written by 'sos init security' on 2026-06-11T09:13:52Z
+# Generic stack metadata. Consumed by advisory-scan (P041) + security-review (P042).
+# Schema version 1. Bump if breaking.
+
+schema_version = 1
+detected_at = "2026-06-11T09:13:52Z"
+sos_kit_version = "P040"
+
+[[stack]]
+type = "rust"
+manifest = "Cargo.toml"
+lock_file = "Cargo.lock"
+lock_format = "cargo-lock"
+parser = "scripts/parsers/cargo_lock.py"
+

@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "doctor": {
+      "_comment": "sos-kit mechanical gate (lane/map/rotate/runtime + verify-setup). PATH-rel.",
+      "command": "doctor",
+      "args": ["serve"]
+    },
+    "docs-gate": {
+      "_comment": "Docs compliance — same engine the pre-commit hook runs as CLI. PATH-rel.",
+      "command": "docs-gate",
+      "args": ["serve"]
+    },
+    "ship": {
+      "_comment": "Release workflow — test/commit/PR/canary. PATH-rel.",
+      "command": "ship",
+      "args": ["serve"]
+    },
+    "guard": {
+      "_comment": "Pre-deploy infra gate — inert until repo has a deploy/SSH target.",
+      "command": "guard",
+      "args": ["serve"]
+    },
+    "vps": {
+      "_comment": "VPS ops — inert until ~/.vps.toml names a host.",
+      "command": "vps",
+      "args": ["serve"]
+    }
+  }
+}

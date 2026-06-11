@@ -1,0 +1,44 @@
+# CLAUDE.md — inv-gate
+
+> Project context for Claude Code. Workflow doctrine: sos-kit (3 roles + Quản đốc orchestrator).
+> **PRD / single source of truth: `docs/PROJECT.md`** — written 2026-05-28, read it before any phiếu or code.
+
+## What this is
+
+Rust binary replacing tarot's **5-file mechanical security gate** (~797 LOC Python+Bash,
+frozen at `golden/`): INV-009 secrets / INV-001 port-bind / INV-010 runtime-secrets /
+Prisma schema-safety + the `security-gate.sh` orchestrator. Dual mode: **CLI** (pre-commit
+hook calls `inv-gate gate --all`) + **MCP** (`serve` — rmcp stdio, tools `check_*` + `gate`).
+
+Kit-family Rust tool — sibling of doctor/docs-gate/claude-hooks/doc-rotate. When v0.1.0
+ships: release-CI tag → GitHub Releases 3-target → join sos-kit `install.sh` BINARIES →
+sos-kit pre-commit `[4/7]` swaps Python call for the binary (kills the last python3
+dependency in the gate chain).
+
+## Method — golden-oracle port (doc-rotate precedent)
+
+1. **P001 pins the oracle FIRST**: run each `golden/` script on fixtures → freeze findings
+   + exit codes into `tests/golden/`. No porting before pinning.
+2. Port one INV per phiếu. Parity test = Rust output vs pinned oracle (same findings,
+   same exit codes). Spec units explicitly (char vs byte — F06 lesson).
+3. Behavior changes (better patterns, new INV) come AFTER parity, as separate phiếu.
+4. `golden/` is read-only reference — never "fix" it.
+
+## Rules
+
+- Stack: Rust edition 2024, clap derive, regex, rmcp (serve = Phase 3). `cargo test` green before commit.
+- Worker KHÔNG invent fixture files — synthetic in-code instances for parity probes OK (F07).
+- Exit-code contract is API: `0` clean, `1` findings, `2` usage/config error — pre-commit
+  hooks depend on it; document any deviation from the golden scripts in CHANGELOG + here.
+- CHANGELOG bump → `Cargo.toml` version sync (F13).
+- Scan-target patterns (what counts as a secret) are a SECURITY surface → Tầng 1 docs +
+  Giám sát review on the PR.
+
+## Sos-kit v2 — 3-role envelope
+
+Chủ nhà (Sếp) — vision, approve, nghiệm thu · Kiến trúc sư (`architect` subagent) — đọc docs,
+viết phiếu, KHÔNG đọc code · Thợ (`worker` subagent) — execute phiếu, full code, KHÔNG vision docs.
+Orchestrator contract: `agents/orchestrator.md` (condensed) + `docs/ORCHESTRATION.md` (spec).
+All spawnable agents carry `background: true` (frontmatter) — spawns don't block the main session.
+Session start: banner shows `docs/BACKLOG.md` Active sprint → pick item → DRAFT → CHALLENGE →
+APPROVAL_GATE → EXECUTE. Markers: `.sos-state/architect-active` / `worker-active` (2 chiều).
