@@ -22,6 +22,8 @@ enum Commands {
 enum CheckCommand {
     /// INV-009 — hardcoded secrets scan (parity port of golden/check-hardcoded-secrets.py)
     Secrets,
+    /// INV-010 — runtime secrets scan (parity port of golden/check-runtime-secrets.py)
+    Runtime,
 }
 
 fn main() {
@@ -29,6 +31,7 @@ fn main() {
     let exit_code = match cli.command {
         Commands::Check { check } => match check {
             CheckCommand::Secrets => checks::secrets::run(),
+            CheckCommand::Runtime => checks::runtime::run(),
         },
     };
     std::process::exit(exit_code);

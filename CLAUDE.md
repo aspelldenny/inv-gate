@@ -44,6 +44,12 @@ Pre-cleared 2026-06-11: W15 cargo-check phase OK · W16 security gate passes ove
 - CHANGELOG bump → `Cargo.toml` version sync (F13).
 - Scan-target patterns (what counts as a secret) are a SECURITY surface → Tầng 1 docs +
   Giám sát review on the PR.
+- **P003 pattern transcription (INV-010 only):** `golden/check-runtime-secrets.py:100-103`
+  — 4 `db-conn-*` patterns had `(?!\$)` (negative lookahead, unsupported by `regex` crate)
+  dropped. Equivalence proven: the immediately-following class `[^@/\s\$]{8,}` already
+  excludes `$`, making the lookahead redundant. Proof: 15/15 adversarial oracle cases +
+  proof tests g1-g4 in `tests/parity_runtime.rs`. Future patterns with lookahead require a
+  fresh equivalence proof — do NOT apply this transcription blindly.
 
 ## Sos-kit v2 — 3-role envelope
 

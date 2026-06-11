@@ -2,6 +2,17 @@
 
 Format loosely follows Keep a Changelog.
 
+## [Unreleased] — P003 check runtime — 2026-06-11
+
+### Added
+- `src/checks/runtime.rs` — INV-010 port of `golden/check-runtime-secrets.py` (parity 1:1). RUNTIME_FILES (`.git/config`, `.mcp.json`, `.claude/settings.local.json`), INFRA_GLOBS (read_dir+sort — Python 3.12+ sorted glob, no `glob` crate), INFRA_TOP_LEVEL, 15 prefix patterns + 1 generic, allowlist (golden:119-135), SKIP_EXTENSIONS, masking, output format — all verbatim with `golden:line` citations. Sub-mech F (dotfile token leak, golden:39) classification noted in Discovery.
+- `src/main.rs` — variant `Runtime` added to `CheckCommand`; dispatch to `checks::runtime::run()`.
+- `src/checks/mod.rs` — `pub mod runtime;` added.
+- `tests/parity_runtime.rs` — 2 parity tests (dirty/clean) byte-exact vs `tests/golden/pins/`; 14 mandatory unit tests (V2): all pattern classes (a-g) including proof tests g1-g4 for db-conn equivalence.
+
+### Pattern deviation (V2 — O1.1, security surface — Giám sát review required)
+4 `db-conn-*` patterns (`golden:100-103`) contained negative lookahead `(?!\$)` — unsupported by `regex` crate. Resolution: **drop exactly the token `(?!\$)`**, keep every other character verbatim. Equivalence: the immediately-following char class `[^@/\s\$]{8,}` already excludes `$`, so the lookahead is redundant (the formal language accepted by both versions is identical). Proof: 15/15 adversarial oracle cases (Debate Log Turn 2) + proof tests g1-g4 (green). No dep added, no behavior change.
+
 ## [Unreleased] — P002 check secrets — 2026-06-11
 
 ### Added
