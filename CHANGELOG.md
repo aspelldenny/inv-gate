@@ -2,6 +2,27 @@
 
 Format loosely follows Keep a Changelog.
 
+## [Unreleased] — P010 — fix empty-tree SHA fallback (check schema) — 2026-06-11
+
+### Fixed
+- `src/checks/schema.rs` `get_diff()` Step 2: replace truncated 15-char SHA `4b825dc8669f8c0`
+  (golden bug, `golden/check-schema-safety.sh:33`) with correct 40-char empty-tree SHA-1
+  `4b825dc642cb6eb9a060e54bf8d69288fbee4904` (oracle: `git hash-object -t tree /dev/null`).
+- **Behavior change (1-commit repo only):** Step 2 now succeeds → diff = all-additions vs
+  empty tree → routes **Branch D** ("no destructive pattern — safe") instead of Branch C
+  ("No schema diff — safe"). Exit code remains 0 (outcome identical; mechanism now correct).
+  Proven by TDD: probe `p010_probe_a` RED on old code, GREEN after fix.
+- Not-a-repo and ≥2-commit paths: unchanged. Parity pins byte-identical (fixture uses 2-commit
+  repo → Step 1 always succeeds → fallback never fires in pinned path).
+- **Exit-1 unreachable by construction** (empty-tree diff is all `+` lines; `DESTRUCTIVE_RE`
+  only matches lines starting with `-`). Probe `p010_probe_c` confirms empirically.
+- **Deviation #1 (intentional) from golden behavior:** golden bug retained in `golden/` as
+  read-only reference (method rule 4). Fix lives in Rust + docs (CLAUDE.md §Deviations below).
+  sha256-repos have a different empty-tree hash — out of scope (golden never supported them).
+- Oracle guard: `p010_probe_e_oracle_guard_empty_tree_sha` runs `git hash-object -t tree
+  /dev/null` at test-time and asserts output == `EMPTY_TREE_SHA` constant (typo guard on
+  every machine).
+
 ## [Unreleased] — P009 — CI actions bump (Node 24) — 2026-06-11
 
 ### Changed

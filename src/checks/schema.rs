@@ -8,17 +8,24 @@
 // Git called via std::process::Command (git2 crate banned, anchor #17 ✅).
 // Stdout byte-exact vs pins; stderr suppressed (git: Stdio::null()).
 //
-// O1.2 (Debate Log Turn 1): golden/check-schema-safety.sh:33 uses SHA `4b825dc8669f8c0`
-// (15 chars) — NOT the standard empty-tree SHA `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
-// Fallback chain ported AS-IS: both git calls may fail on 1-commit/fresh repo → echo "" fires.
-// This is intentional parity — DO NOT "fix" the SHA in this phiếu (parity-first, Luật chơi 1).
-// Improvement candidate for BACKLOG after parity is shipped.
+// O1.2 (P004 Debate Log): golden/check-schema-safety.sh:33 uses SHA `4b825dc8669f8c0`
+// (15 chars) — a golden bug (NOT the standard empty-tree SHA).
+// P010 FIX: fallback now uses correct 40-char empty-tree SHA `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
+// Deviation from golden is intentional and documented (CLAUDE.md §Deviations, CHANGELOG P010).
+// See EMPTY_TREE_SHA constant + p010_probe_e_oracle_guard_empty_tree_sha for oracle guard.
 
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
 
 // golden/check-schema-safety.sh:23
 const SCHEMA_FILE: &str = "prisma/schema.prisma";
+
+// P010: empty-tree SHA-1 (git constant — hash of an empty tree object).
+// oracle: git hash-object -t tree /dev/null
+// Deviates from golden/check-schema-safety.sh:33 (truncated 15-char `4b825dc8669f8c0` = golden bug).
+// sha256-repos have a different empty-tree hash — out of scope (golden never supported sha256-repos).
+// See CLAUDE.md §Deviations and CHANGELOG P010.
+const EMPTY_TREE_SHA: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 // golden/check-schema-safety.sh:18-20 — ALLOW_DATA_LOSS bypass
 // Exact string "true" only — case-sensitive; default `false` when unset (bash :-false).
@@ -53,9 +60,9 @@ fn git_diff(args: &[&str]) -> (String, bool) {
     }
 }
 
-// golden/check-schema-safety.sh:32-34 — fallback chain 3 steps (AS-IS including bad SHA — O1.2)
+// golden/check-schema-safety.sh:32-34 — fallback chain 3 steps
 // Step 1: git diff HEAD~1..HEAD -- prisma/schema.prisma
-// Step 2: git diff 4b825dc8669f8c0..HEAD -- prisma/schema.prisma  ← 15-char SHA, NOT empty-tree standard
+// Step 2: git diff EMPTY_TREE_SHA..HEAD -- prisma/schema.prisma  (P010 fix: 40-char SHA, not golden's 15-char)
 // Step 3: "" (echo "" fallback)
 // "fail" semantics = bash || (non-zero exit from git) ↔ Rust: !success_bool
 fn get_diff() -> String {
@@ -65,8 +72,11 @@ fn get_diff() -> String {
         return diff;
     }
 
-    // Step 2 — O1.2: bad SHA 4b825dc8669f8c0 (15 chars) ported AS-IS, not fixed
-    let (diff2, ok2) = git_diff(&["diff", "4b825dc8669f8c0..HEAD", "--", SCHEMA_FILE]);
+    // Step 2 — P010 fix: use correct empty-tree SHA-1 (40 chars) instead of golden's
+    // truncated 15-char `4b825dc8669f8c0` (golden bug). See CLAUDE.md §Deviations + CHANGELOG P010.
+    // oracle: git hash-object -t tree /dev/null = 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+    // sha256-repos out of scope. Deviation guarded by probe p010_probe_e_oracle_guard_empty_tree_sha.
+    let (diff2, ok2) = git_diff(&["diff", &format!("{EMPTY_TREE_SHA}..HEAD"), "--", SCHEMA_FILE]);
     if ok2 {
         return diff2;
     }
@@ -361,6 +371,96 @@ mod tests {
         assert!(
             stdout.contains("no destructive pattern") && stdout.contains("safe"),
             "expected Branch D safe message, got: {}", stdout
+        );
+    }
+
+    // ── P010 probes — empty-tree SHA fix ────────────────────────────────────────
+
+    // P010-(a) routing delta: 1-commit repo → should route Branch D post-fix
+    // TDD RED phase: on old code (bad 15-char SHA) Step 2 fails → Branch C fires instead.
+    // After fix (40-char SHA) Step 2 succeeds → diff = additions → Branch D fires.
+    // golden cite: Branch C = :36-39, Branch D = :63
+    #[test]
+    fn p010_probe_a_routing_1commit_branch_d() {
+        let tmp = tempfile::tempdir().unwrap();
+        let schema = "model User {\n  id Int @id\n  email String\n}\n";
+        build_1commit_repo(tmp.path(), schema);
+
+        let (code, stdout) = run_schema_in(tmp.path(), None);
+        assert_eq!(code, 0, "1-commit repo should be safe, got: {}", stdout);
+        // Post-fix: Step 2 succeeds → diff contains additions → Branch D wording
+        assert!(
+            stdout.contains("no destructive pattern"),
+            "expected Branch D (no destructive pattern) not Branch C (No schema diff), got: {}",
+            stdout
+        );
+    }
+
+    // P010-(b) not-a-repo: Branch C/F unchanged post-fix (both git calls still fail)
+    #[test]
+    fn p010_probe_b_not_a_repo_still_branch_c() {
+        let tmp = tempfile::tempdir().unwrap();
+        let prisma = tmp.path().join("prisma");
+        std::fs::create_dir_all(&prisma).unwrap();
+        std::fs::write(prisma.join("schema.prisma"), "model User { id Int @id }\n").unwrap();
+
+        let (code, stdout) = run_schema_in(tmp.path(), None);
+        assert_eq!(code, 0, "not-a-repo should be safe via fallback chain, got: {}", stdout);
+        // Step 2 also fails (no git repo), so Branch C fires as before
+        assert!(
+            stdout.contains("No schema diff"),
+            "expected Branch C (No schema diff), got: {}",
+            stdout
+        );
+    }
+
+    // P010-(c) empirical anchor #8: diff so empty-tree is all additions → exit-1 unreachable
+    // golden:48 DESTRUCTIVE_RE only matches lines starting with '-'; empty-tree diff has only '+' lines
+    #[test]
+    fn p010_probe_c_1commit_empirical_no_finding() {
+        let tmp = tempfile::tempdir().unwrap();
+        let schema = "model User {\n  id Int @id\n  email String\n}\n";
+        build_1commit_repo(tmp.path(), schema);
+
+        let (code, stdout) = run_schema_in(tmp.path(), None);
+        // Post-fix: 1-commit repo → Branch D, no destructive findings, exit 0
+        assert_eq!(code, 0, "1-commit repo with sane schema should exit 0, got: {}", stdout);
+        // Confirm no ❌ (destructive findings indicator)
+        assert!(
+            !stdout.contains('\u{274C}'),
+            "expected no destructive finding (exit-1 unreachable so empty-tree), got: {}",
+            stdout
+        );
+    }
+
+    // P010-(d) 2-commit destructive → exit 1 (Step 1 path, fix does not touch this)
+    #[test]
+    fn p010_probe_d_2commit_destructive_exit1() {
+        let tmp = tempfile::tempdir().unwrap();
+        let before = "model User {\n  id Int @id\n  email String\n}\n";
+        let after = "model User {\n  id Int @id\n}\n"; // removed email field
+        build_2commit_repo(tmp.path(), before, after);
+
+        let (code, stdout) = run_schema_in(tmp.path(), None);
+        assert_eq!(code, 1, "2-commit destructive should exit 1, got stdout: {}", stdout);
+        assert!(stdout.contains('\u{274C}'), "expected ❌ in destructive output, got: {}", stdout);
+    }
+
+    // P010-(e) oracle guard: git hash-object -t tree /dev/null == EMPTY_TREE_SHA constant
+    // If the hardcoded constant is wrong (typo), this test fails on every machine.
+    // This is why hardcoding is safe: the oracle runs at test-time.
+    #[test]
+    fn p010_probe_e_oracle_guard_empty_tree_sha() {
+        let output = std::process::Command::new("git")
+            .args(["hash-object", "-t", "tree", "/dev/null"])
+            .output()
+            .expect("git hash-object must be available");
+        assert!(output.status.success(), "git hash-object failed");
+        let oracle = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        assert_eq!(
+            oracle,
+            EMPTY_TREE_SHA,
+            "EMPTY_TREE_SHA constant does not match oracle output"
         );
     }
 }
