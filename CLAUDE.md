@@ -37,6 +37,10 @@ Pre-cleared 2026-06-11: W15 cargo-check phase OK · W16 security gate passes ove
 - Worker KHÔNG invent fixture files — synthetic in-code instances for parity probes OK (F07).
 - Exit-code contract is API: `0` clean, `1` findings, `2` usage/config error — pre-commit
   hooks depend on it; document any deviation from the golden scripts in CHANGELOG + here.
+- **P001 deviation (anchor #5/#8):** the 4 individual check scripts exit 0/1 ONLY — no
+  exit-2 mode. Exit 2 applies only to `security-gate.sh` (unknown flag). Rust port must
+  match this per-script behavior; do NOT add exit-2 to individual checks without a
+  separate phiếu + Tầng 1 approval.
 - CHANGELOG bump → `Cargo.toml` version sync (F13).
 - Scan-target patterns (what counts as a secret) are a SECURITY surface → Tầng 1 docs +
   Giám sát review on the PR.

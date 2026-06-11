@@ -1,0 +1,1 @@
+Schema diff present but no destructive pattern (field/model removed) detected — safe.

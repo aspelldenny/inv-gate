@@ -1,0 +1,2 @@
+.git/config:14: INV-010 violated -- ghp_...0000 (github-pat-classic)
+.git/config:14: INV-010 violated -- http...000@ (token-in-url)
