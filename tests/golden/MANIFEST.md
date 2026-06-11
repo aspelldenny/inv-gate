@@ -115,6 +115,12 @@ Applied by `repin.sh` to each captured output before writing to `pins/`:
 5. **INFRA_GLOBS sorted alphabetical:** `golden/check-runtime-secrets.py:215-221` uses `root.glob(pattern)` which in Python 3.12+ returns sorted results. Rust port: `read_dir` + collect + `.sort()` before iterating. NO `glob` crate needed — pairs are 1-level non-recursive. P004-P005 checks that glob over infra dirs must follow the same pattern.
 6. **db-conn transcription precedent (INV-010 only):** 4 patterns (`golden:100-103`) had `(?!\$)` dropped (equivalence-proven, see P003 Debate Log Turn 2 + proof tests g1-g4). This transcription is specific to these 4 patterns; no other check currently exercises negative lookahead. If P004-P005 encounter lookahead in `golden/check-port-bind.py` or `golden/check-schema-safety.sh`, run a fresh equivalence proof before applying the same approach.
 
+### P004 rules (applicable to P005)
+
+7. **stderr-pin contract per-check:** port check has NON-EMPTY stderr pins (`port--{dirty,clean}.stderr.txt`, 108 bytes each — 2-line WARN per fixture). Parity test MUST assert stderr BYTE-EXACT vs pin, NOT assume empty. Schema check has empty stderr (git stderr suppressed). P005 `gate --all` aggregator must treat each check's stderr contract independently.
+8. **git-via-Command pattern (bash-port precedent):** `check-schema-safety.sh` is the first bash script ported. Pattern: `std::process::Command` for git calls, `Stdio::null()` for `2>/dev/null` equivalence, `|| true` grep equivalent = empty Vec is not an error. P005 should reuse this pattern for any additional git interactions.
+9. **O1.2 bad-SHA fallback (INV-schema):** `golden/check-schema-safety.sh:33` uses 15-char SHA `4b825dc8669f8c0` (not the standard 40-char empty-tree SHA). Both git calls fail on 1-commit/fresh repo → fallback fires. Ported AS-IS (parity). Improvement (use correct SHA `4b825dc642cb6eb9a060e54bf8d69288fbee4904`) tracked in BACKLOG.
+
 ---
 
 ## 5. Unit-spec table (F06 compliance)

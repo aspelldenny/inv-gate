@@ -24,6 +24,10 @@ enum CheckCommand {
     Secrets,
     /// INV-010 — runtime secrets scan (parity port of golden/check-runtime-secrets.py)
     Runtime,
+    /// INV-001 — docker-compose host-bind check (parity port of golden/check-port-bind.py)
+    Port,
+    /// Prisma schema-safety — destructive migration guard (parity port of golden/check-schema-safety.sh)
+    Schema,
 }
 
 fn main() {
@@ -32,6 +36,8 @@ fn main() {
         Commands::Check { check } => match check {
             CheckCommand::Secrets => checks::secrets::run(),
             CheckCommand::Runtime => checks::runtime::run(),
+            CheckCommand::Port => checks::port::run(),
+            CheckCommand::Schema => checks::schema::run(),
         },
     };
     std::process::exit(exit_code);
