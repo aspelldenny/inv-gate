@@ -13,6 +13,12 @@ Cargo.lock.bak
 # Logs
 *.log
 
+# INV-004: env secret files — must never be committed (golden/security-gate.sh:91-99)
+.env.production
+.env.staging
+.env.backup
+.env.local
+
 # Claude Code local state
 .claude/.architect-active
 .claude/settings.local.json

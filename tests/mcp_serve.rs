@@ -455,6 +455,151 @@ fn mcp_check_port_stderr_field_is_string() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helper: call a tool with explicit arguments and return the parsed 4-field JSON response
+// (P007 — Tầng 2; anchor #8 verified: harness extended with this helper)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn call_tool_with_args(sess: &mut ServeSession, tool_name: &str, arguments: Value) -> Value {
+    let resp = sess.request(
+        "tools/call",
+        json!({ "name": tool_name, "arguments": arguments }),
+    );
+    // For isError responses, result is still present in rmcp — return as-is for inspection
+    let content = resp["result"]["content"]
+        .as_array()
+        .expect("result.content must be array");
+    assert!(!content.is_empty(), "content must not be empty for {}", tool_name);
+    let text = content[0]["text"].as_str().expect("content[0].text must be string");
+    serde_json::from_str(text).unwrap_or_else(|_| {
+        // If not valid JSON (e.g. error message text), return as Value::String
+        serde_json::Value::String(text.to_string())
+    })
+}
+
+/// Call tool and return the raw response value (for isError checking).
+fn call_tool_raw(sess: &mut ServeSession, tool_name: &str, arguments: Value) -> Value {
+    sess.request(
+        "tools/call",
+        json!({ "name": tool_name, "arguments": arguments }),
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: build a minimal repo (mirrors gate_skip.rs — Tầng 2 inline)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn build_minimal_repo_mcp(tmp: &Path) {
+    use std::fs;
+
+    let git_in = |dir: &Path, args: &[&str]| {
+        let out = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00 +0000")
+            .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00 +0000")
+            .output()
+            .expect("git");
+        if !out.status.success() {
+            panic!("git {:?} failed", args);
+        }
+    };
+
+    git_in(tmp, &["init", "-q", "."]);
+    git_in(tmp, &["config", "user.name", "P007 MCP"]);
+    git_in(tmp, &["config", "user.email", "test@inv-gate.local"]);
+    git_in(tmp, &["config", "commit.gpgsign", "false"]);
+
+    fs::write(
+        tmp.join(".gitignore"),
+        ".env.production\n.env.staging\n.env.backup\n.env.local\n",
+    )
+    .unwrap();
+    fs::create_dir_all(tmp.join("src")).unwrap();
+    fs::write(tmp.join("src/main.rs"), "fn main() {}\n").unwrap();
+    git_in(tmp, &["add", "-A"]);
+    git_in(tmp, &["commit", "-q", "-m", "mcp minimal"]);
+    git_in(tmp, &["remote", "add", "origin", "https://github.com/example/mcp-minimal.git"]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Probe (g): MCP gate tool with skip_absent arg — P007
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// (g1) gate tool with {"skip_absent": true} on minimal fixture → exit_code 0, is_clean true,
+/// findings contains SKIP lines.
+#[test]
+fn mcp_gate_skip_absent_true_exit_0() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    build_minimal_repo_mcp(tmp.path());
+
+    let mut sess = ServeSession::start(tmp.path());
+    sess.initialize();
+
+    let payload = call_tool_with_args(&mut sess, "gate", json!({"skip_absent": true}));
+
+    let exit_code = payload["exit_code"].as_i64().expect("exit_code must be int") as i32;
+    let is_clean = payload["is_clean"].as_bool().expect("is_clean must be bool");
+    let findings = payload["findings"].as_str().expect("findings must be string");
+
+    assert_eq!(exit_code, 0, "gate skip_absent=true on minimal repo must exit_code=0");
+    assert!(is_clean, "gate skip_absent=true on minimal repo must be is_clean=true");
+    assert!(
+        findings.contains("  SKIP (no sentry.ts / sentry.*.config.* present)"),
+        "findings must contain INV-005 SKIP line: got:\n{}", findings
+    );
+    assert!(
+        findings.contains("  SKIP (file docker-compose.yml absent)"),
+        "findings must contain INV-008 SKIP line: got:\n{}", findings
+    );
+
+    let status = sess.close();
+    assert!(status.success(), "serve should exit 0 cleanly");
+}
+
+/// (g2) gate tool with NO arguments on minimal fixture → exit_code 1 (backward compat — default false).
+#[test]
+fn mcp_gate_no_args_backward_compat_exit_1() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    build_minimal_repo_mcp(tmp.path());
+
+    let mut sess = ServeSession::start(tmp.path());
+    sess.initialize();
+
+    let payload = call_tool(&mut sess, "gate");
+
+    let exit_code = payload["exit_code"].as_i64().expect("exit_code must be int") as i32;
+    let is_clean = payload["is_clean"].as_bool().expect("is_clean must be bool");
+
+    assert_eq!(exit_code, 1, "gate no-args on minimal repo must exit_code=1 (default false)");
+    assert!(!is_clean, "gate no-args on minimal repo must be is_clean=false");
+
+    let status = sess.close();
+    assert!(status.success(), "serve should exit 0 cleanly");
+}
+
+/// (g3) gate tool with wrong type arg (string instead of bool) → isError true (fail-closed).
+#[test]
+fn mcp_gate_wrong_type_arg_is_error() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    build_minimal_repo_mcp(tmp.path());
+
+    let mut sess = ServeSession::start(tmp.path());
+    sess.initialize();
+
+    let raw_resp = call_tool_raw(&mut sess, "gate", json!({"skip_absent": "yes"}));
+
+    // The result should have is_error: true
+    let is_error = raw_resp["result"]["isError"].as_bool().unwrap_or(false);
+    assert!(
+        is_error,
+        "gate with wrong-type skip_absent must return isError=true (fail-closed): got:\n{:?}", raw_resp
+    );
+
+    let status = sess.close();
+    assert!(status.success(), "serve should exit 0 cleanly");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Test: serve exits non-zero on wrong flag (clap exit 2)
 // ─────────────────────────────────────────────────────────────────────────────
 

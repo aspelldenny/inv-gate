@@ -16,6 +16,7 @@ struct State {
     fail: u32,
     warn: u32,
     failed_invs: Vec<String>,
+    skipped_invs: Vec<String>,
 }
 
 impl State {
@@ -25,6 +26,7 @@ impl State {
             fail: 0,
             warn: 0,
             failed_invs: Vec::new(),
+            skipped_invs: Vec::new(),
         }
     }
 }
@@ -66,7 +68,11 @@ fn run_section_buf<F>(
 
 /// Buffered core — no stdout/stderr side effects; returns CheckOutput.
 /// Called by both CLI run() and MCP serve.
-pub fn run_core() -> crate::checks::CheckOutput {
+/// skip_absent: when true, allowlisted INVs whose prerequisite file(s) are absent
+/// are skipped (SKIP note + warn count) instead of failing.
+/// When false (default), behavior is BYTE-IDENTICAL to the prior no-arg version.
+/// Allowlist: ONLY INV-005 (guard kép — 2 sources) + INV-008. See docs/ticket/P007.
+pub fn run_core(skip_absent: bool) -> crate::checks::CheckOutput {
     let mut buf_out = String::new();
     let mut buf_err = String::new();
     let mut state = State::new();
@@ -92,9 +98,32 @@ pub fn run_core() -> crate::checks::CheckOutput {
     });
 
     // golden/security-gate.sh:112-123 — INV-005: Sentry config scrubs Authorization (inline bash)
-    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-005", "Sentry config has beforeSend/beforeBreadcrumb scrubber", || {
-        inv_005()
-    });
+    // P007 --skip-absent: golden/security-gate.sh:115-116 demands src/lib/sentry.ts AND
+    // sentry.*.config.* (read_dir glob); absent (BOTH) => SKIP (allowlist — see docs/ticket/P007).
+    // GUARD KÉP (O1.1): skip only when BOTH sources absent — fail-closed on repos with
+    // sentry.client.config.ts present (probe c2).
+    if skip_absent && !std::path::Path::new("src/lib/sentry.ts").exists() && {
+        let sentry_config_present = std::fs::read_dir(".").map_or(false, |entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .any(|e| {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    name.starts_with("sentry.") && name.contains(".config.")
+                })
+        });
+        !sentry_config_present
+    } {
+        // Both sentry sources absent — SKIP with LOUD note
+        buf_out.push_str("--- INV-005: Sentry config has beforeSend/beforeBreadcrumb scrubber ---\n");
+        buf_out.push_str("  SKIP (no sentry.ts / sentry.*.config.* present)\n");
+        buf_out.push('\n');
+        state.warn += 1;
+        state.skipped_invs.push("INV-005".to_string());
+    } else {
+        run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-005", "Sentry config has beforeSend/beforeBreadcrumb scrubber", || {
+            inv_005()
+        });
+    }
 
     // golden/security-gate.sh:125-136 — INV-006: astro-service CORS not wildcard (inline bash)
     run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-006", "astro-service CORS not wildcard", || {
@@ -106,9 +135,20 @@ pub fn run_core() -> crate::checks::CheckOutput {
     // → ZERO output in mechanical-only mode
 
     // golden/security-gate.sh:176-193 — INV-008: internal services use expose: not ports: (inline Python→Rust)
-    run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-008", "Internal services use expose: not ports:", || {
-        inv_008()
-    });
+    // P007 --skip-absent: golden/security-gate.sh:176-193 demands docker-compose.yml; absent => SKIP
+    // (allowlist — see docs/ticket/P007). File present but internal service has ports: => FAIL.
+    if skip_absent && !std::path::Path::new("docker-compose.yml").exists() {
+        // docker-compose.yml absent — SKIP with LOUD note
+        buf_out.push_str("--- INV-008: Internal services use expose: not ports: ---\n");
+        buf_out.push_str("  SKIP (file docker-compose.yml absent)\n");
+        buf_out.push('\n');
+        state.warn += 1;
+        state.skipped_invs.push("INV-008".to_string());
+    } else {
+        run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-008", "Internal services use expose: not ports:", || {
+            inv_008()
+        });
+    }
 
     // golden/security-gate.sh:195-197 — INV-009: secrets check (in-process, not subprocess)
     run_section_buf(&mut buf_out, &mut buf_err, &mut state, "INV-009", "No hardcoded secret in src/ + astro-service/ source files", || {
@@ -132,6 +172,13 @@ pub fn run_core() -> crate::checks::CheckOutput {
         // golden:206-208
         let inv_list: Vec<&str> = state.failed_invs.iter().map(|s| s.as_str()).collect();
         buf_out.push_str(&format!("Failed invariants: {}\n", inv_list.join(" ")));
+    }
+    // P007: skipped invariants line — only when skip_absent path had skips (unreachable in parity runs)
+    if !state.skipped_invs.is_empty() {
+        let skip_list: Vec<&str> = state.skipped_invs.iter().map(|s| s.as_str()).collect();
+        buf_out.push_str(&format!("Skipped invariants: {}\n", skip_list.join(" ")));
+    }
+    if state.fail > 0 {
         return crate::checks::CheckOutput { stdout: buf_out, stderr: buf_err, code: 1 };
     }
     // golden:210
@@ -140,8 +187,8 @@ pub fn run_core() -> crate::checks::CheckOutput {
 
 /// `inv-gate gate --all` — CLI wrapper.
 /// Prints buffered output to real stdout/stderr, returns exit code.
-pub fn run() -> i32 {
-    let out = run_core();
+pub fn run(skip_absent: bool) -> i32 {
+    let out = run_core(skip_absent);
     print!("{}", out.stdout);
     eprint!("{}", out.stderr);
     out.code
