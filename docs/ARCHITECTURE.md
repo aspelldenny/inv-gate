@@ -12,7 +12,11 @@ porting (doc-rotate precedent).
 ## Components
 
 - `src/main.rs` — clap dispatch: `check secrets|port|runtime|schema` · `gate` · `serve`
-- `src/checks/` (planned) — 1 module / INV: `secrets.rs` (INV-009), `port.rs` (INV-001), `runtime.rs` (INV-010), `schema.rs` (Prisma)
+- `src/checks/` — 1 module / INV:
+  - `secrets.rs` (INV-009) — **shipped P002**: parity port of `golden/check-hardcoded-secrets.py`; all scan targets, 7 prefix patterns + 1 generic, 8-entry allowlist, path-level + test-file + comment-line skip rules verbatim from golden.
+  - `port.rs` (INV-001) — planned
+  - `runtime.rs` (INV-010) — planned
+  - `schema.rs` (Prisma schema-safety) — planned
 - `src/gate.rs` (planned) — orchestrator: run all, aggregate exit code (0 clean / 1 findings / 2 config error)
 - `golden/` — FROZEN oracle scripts (read-only reference)
 - `tests/golden/` (P001) — pinned oracle outputs; parity tests compare Rust vs pin
