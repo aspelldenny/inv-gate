@@ -103,13 +103,53 @@ impl InvGateServer {
             .with_route(ToolRoute::new_dyn(
                 Tool::new(
                     "gate",
-                    format!("Runs all mechanical invariants (equivalent to `inv-gate gate --all`). {}", desc_suffix),
-                    serde_json::Map::new(),
+                    format!(
+                        "Runs all mechanical invariants (equivalent to `inv-gate gate --all`). \
+                         Optional arg skip_absent (boolean): skip allowlisted INVs (INV-005, INV-008) \
+                         whose prerequisite file is absent — prints SKIP note, counts as warning. \
+                         Default false (golden parity). {}",
+                        desc_suffix
+                    ),
+                    {
+                        let mut schema = serde_json::Map::new();
+                        schema.insert("type".to_string(), serde_json::Value::String("object".to_string()));
+                        let mut props = serde_json::Map::new();
+                        let mut skip_absent_prop = serde_json::Map::new();
+                        skip_absent_prop.insert("type".to_string(), serde_json::Value::String("boolean".to_string()));
+                        skip_absent_prop.insert(
+                            "description".to_string(),
+                            serde_json::Value::String(
+                                "Skip allowlisted INVs (INV-005, INV-008) whose prerequisite file is absent. Default false (golden parity).".to_string()
+                            ),
+                        );
+                        props.insert("skip_absent".to_string(), serde_json::Value::Object(skip_absent_prop));
+                        schema.insert("properties".to_string(), serde_json::Value::Object(props));
+                        schema.insert("required".to_string(), serde_json::Value::Array(vec![]));
+                        schema
+                    },
                 ),
-                |_ctx: ToolCallContext<'_, InvGateServer>| {
-                    let out = crate::gate::run_core();
-                    let result = make_response(&out);
-                    Box::pin(async move { Ok(result) })
+                |ctx: ToolCallContext<'_, InvGateServer>| {
+                    // Parse skip_absent from arguments — fail-closed on wrong type (Tầng 1 API contract)
+                    let skip_absent_result: Result<bool, CallToolResult> = match ctx.arguments.as_ref()
+                        .and_then(|m| m.get("skip_absent"))
+                    {
+                        None | Some(serde_json::Value::Null) => Ok(false),
+                        Some(serde_json::Value::Bool(b)) => Ok(*b),
+                        Some(other) => Err(CallToolResult::error(vec![
+                            rmcp::model::Content::text(format!(
+                                "skip_absent must be a boolean, got: {}",
+                                other
+                            )),
+                        ])),
+                    };
+                    match skip_absent_result {
+                        Err(err_result) => Box::pin(async move { Ok(err_result) }),
+                        Ok(skip_absent) => {
+                            let out = crate::gate::run_core(skip_absent);
+                            let result = make_response(&out);
+                            Box::pin(async move { Ok(result) })
+                        }
+                    }
                 },
             ));
 

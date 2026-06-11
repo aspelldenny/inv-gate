@@ -2,6 +2,41 @@
 
 Format loosely follows Keep a Changelog.
 
+## [Unreleased] — P007 gate --skip-absent — 2026-06-11
+
+### Added (behavior change — first deviation from golden parity; method rule 3 CLAUDE.md)
+- `gate --all --skip-absent` (bool flag, default off): opt-in skip for allowlisted INVs whose
+  prerequisite file is absent. Allowlist: **INV-005 + INV-008 only** (hardcoded, closed — adding
+  any INV requires a separate phiếu + Tầng 1 review).
+  - INV-005 (Sentry scrubber): SKIP only when **both** `src/lib/sentry.ts` AND `sentry.*.config.*`
+    glob are absent (guard kép — fail-closed: repo with `sentry.client.config.ts` present still
+    runs the check; probe c2).
+  - INV-008 (internal ports): SKIP only when `docker-compose.yml` absent.
+  - Output per skipped INV: `  SKIP (...)` line (LOUD — not silent), counts as WARN.
+  - Summary appends `Skipped invariants: ...` line (only when skips > 0 — unreachable in parity runs).
+  - File present but check failing → FAIL as usual (fail-closed principle; probes c, c2).
+  - INV-004 / INV-009 / INV-010: **never skippable** (universal, no file-absence dependency).
+- `src/gate.rs`: `run_core(skip_absent: bool)` — added param. Default path (`false`) is
+  BYTE-IDENTICAL to prior parity; all new code gated on `if skip_absent` branches.
+  `run(skip_absent: bool)` CLI wrapper threaded from `Gate { skip_absent }`.
+  `State.skipped_invs: Vec<String>` added for `Skipped invariants` line.
+- `src/main.rs`: `--skip-absent` flag on `Gate` variant (default false).
+- `src/serve.rs`: MCP tool `gate` now accepts optional arg `skip_absent: boolean` (default false).
+  Wrong type → `isError: true` (fail-closed; no silent default). Input schema handcrafted
+  (no schemars dep). 4 tools unchanged.
+- `tests/gate_skip.rs` (new): 8 probes — (a) SKIP + exit 0; (b) default FAIL; (c) fail-closed
+  per-INV; (c2) guard kép sentry.client.config.ts; (d) flag no-op byte-identical when files present;
+  (e) INV-004 not skippable; (f) skip + fail coexist.
+- `tests/mcp_serve.rs`: 3 new probes — (g1) skip_absent=true → exit_code 0; (g2) no-args backward
+  compat → exit_code 1; (g3) wrong-type → isError true. Helper `call_tool_with_args` + `call_tool_raw`.
+- `.gitignore`: added 4 entries INV-004 demands (`.env.production .env.staging .env.backup .env.local`).
+  git history verified CLEAN before add (anchor #10 re-run: `git log --all --diff-filter=A -- '.env*'` empty).
+
+### Not changed
+- Default behavior (no flag): BYTE-IDENTICAL to P006 — 84 old tests + pins untouched.
+- `src/checks/*.rs`, `golden/`, `tests/golden/`: diff rỗng tuyệt đối (flag lives in gate orchestrator only).
+- `Cargo.toml`, `Cargo.lock`: no new deps, no version bump (F13 — P008).
+
 ## [Unreleased] — P006 serve MCP stdio — 2026-06-11
 
 ### Added

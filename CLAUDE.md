@@ -44,6 +44,11 @@ Pre-cleared 2026-06-11: W15 cargo-check phase OK · W16 security gate passes ove
 - CHANGELOG bump → `Cargo.toml` version sync (F13).
 - Scan-target patterns (what counts as a secret) are a SECURITY surface → Tầng 1 docs +
   Giám sát review on the PR.
+- **P007 flag deviation:** `gate --all --skip-absent` = opt-in deviation from golden parity.
+  Skip allowlist: INV-005 (guard kép — absent only when BOTH `src/lib/sentry.ts` AND
+  `sentry.*.config.*` absent) + INV-008 (absent only when `docker-compose.yml` absent).
+  Default (no flag) = golden `--mechanical-only` parity as before. INV-004/009/010 never skip.
+  Adding any INV to the allowlist requires a separate phiếu + Tầng 1 review.
 - **P005 flag mapping:** `inv-gate gate --all` (Rust) ≡ `security-gate.sh --mechanical-only` (golden). SSH mode (`--include-ssh`) not ported Phase 1 (Sprint 2). Dogfood repo: per-check swap in `scripts/security-gate.sh` (INV-009/010 call binary; INV-007 + inline checks retained in bash or skipped).
 - **P003 pattern transcription (INV-010 only):** `golden/check-runtime-secrets.py:100-103`
   — 4 `db-conn-*` patterns had `(?!\$)` (negative lookahead, unsupported by `regex` crate)

@@ -23,6 +23,9 @@ enum Commands {
         /// Run all mechanical invariants (required — gate without --all exits 2)
         #[arg(long, required = true)]
         all: bool,
+        /// Skip allowlisted INVs (INV-005, INV-008) whose prerequisite file is absent — prints SKIP note, counts as warning. Default: off (golden parity).
+        #[arg(long, default_value_t = false)]
+        skip_absent: bool,
     },
     /// MCP stdio server (rmcp) — exposes check_*/gate tools; scans process cwd
     Serve,
@@ -49,8 +52,8 @@ fn main() {
             CheckCommand::Port => checks::port::run(),
             CheckCommand::Schema => checks::schema::run(),
         },
-        Commands::Gate { all: true } => gate::run(),
-        Commands::Gate { all: false } => {
+        Commands::Gate { all: true, skip_absent } => gate::run(skip_absent),
+        Commands::Gate { all: false, .. } => {
             // clap enforces `required = true` so this branch is unreachable,
             // but exhaustiveness requires it. golden/security-gate.sh:14 → exit 2.
             unreachable!("clap enforces --all required")
