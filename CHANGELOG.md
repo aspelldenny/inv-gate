@@ -2,6 +2,20 @@
 
 Format loosely follows Keep a Changelog.
 
+## [Unreleased] — P009 — CI actions bump (Node 24) — 2026-06-11
+
+### Changed
+- `.github/workflows/release.yml`: bump `actions/checkout@v4` → `@v5` (node20 → node24).
+  GitHub Node.js 20 forced migration deadline 16/06/2026 (annotation run 27356594756).
+- `.github/workflows/release.yml`: bump `softprops/action-gh-release@v2` → `@v3` (node20 → node24).
+  v3.0.0 release notes: only runtime change, no input renames.
+- `.github/workflows/release.yml`: add `prerelease: ${{ contains(github.ref_name, '-rc') }}` to
+  `with:` block of gh-release step (O1.2 resolution — latest-pointer guard). Rc tags evaluate true
+  → GitHub never promotes prerelease to Latest; non-rc releases evaluate false → behavior unchanged.
+- `dtolnay/rust-toolchain@stable` not changed (composite action, not in Node.js 20 annotation).
+- Verify method: rc tag `v0.1.1-rc1` → CI 3 jobs green, 0 Node deprecation annotation,
+  `isPrerelease=true`, latest pointer stayed `v0.1.0`, rc release+tag deleted post-verify.
+
 ## [0.1.0] — 2026-06-11
 
 ### P008 — Release CI 3-target + version freeze (this release)
