@@ -8,10 +8,13 @@
 
 ---
 
-## 🔥 Active sprint: (trống — dự án đạt vision PROJECT.md, chờ Sếp định hướng tiếp)
+## 🔥 Active sprint: Sprint 3 — Maintenance mini (Sếp pick 11/06 tối)
 
-> Sprint 2 hoàn tất 11/06/2026. Dual mode CLI + MCP ship xong, v0.1.0 trên GitHub Releases.
-> Item tiếp theo tự nhiên: sos-kit harvest (cross-repo, làm ở ~/sos-kit) hoặc Sếp pick từ Open backlog.
+> 2 item DEBT Sếp pick trực tiếp từ Open backlog ("em có thể làm cái 1. và 3. luôn").
+> Per-phiếu merge discipline + Giám sát trước merge (cả 2 đụng surface nhạy).
+
+- [ ] **[NEW] P009 — CI actions bump (Node.js 20 deprecation, DEADLINE 16/06/2026).** Bump action versions trong `.github/workflows/` (checkout/rust-toolchain/gh-release...) lên bản Node 22 runtime. Verify bằng tag thử `v0.1.1-rc1` (hoặc workflow_dispatch nếu có) → CI xanh → xóa tag rc. Supply-chain surface → Giám sát trước merge.
+- [ ] **[NEW] P010 — Fix bad-SHA empty-tree fallback trong `check schema`.** Behavior-change post-parity (method rule 3): thay SHA malformed 15-char (port từ `golden:33`) bằng empty-tree SHA chuẩn 40-char (hoặc `git hash-object -t tree /dev/null` runtime). Unit test nhánh 1-commit-repo fallback. Parity pins KHÔNG đổi (fallback không nằm trong fixture path — Worker verify). CLAUDE.md deviation note. Security-gate surface → Giám sát trước merge.
 
 - [x] **P006 — `serve` (MCP stdio)** ✅ 11/06 merged `c9a6d76` — 5 tools rmcp 1.7.0, buffered-core refactor ~43 sites, 84 tests, live JSON-RPC session verified.
 - [x] **P007 — `gate --skip-absent`** ✅ 11/06 merged `e0150c7` — behavior-change đầu tiên sau parity, guard kép INV-005 + INV-008, fail-closed, Giám sát APPROVE 5 focus, 95 tests.
@@ -46,9 +49,7 @@
 
 <!-- Sếp dump idea ở đây qua /idea skill, hoặc trực tiếp edit tay. -->
 
-- [ ] **[DEBT] CI: bump actions trước Node.js 20 deprecation — DEADLINE 16/06/2026** (từ P008 CI log warning): release.yml actions chạy Node 20 runtime sắp bị GitHub gỡ — bump version các action (checkout/rust-toolchain/gh-release) lên bản Node 22. Estimate: 30m + 1 lần tag thử. Nguồn: docs/discoveries/P008.md.
 - [ ] **[KIT-HARVEST] sos-kit: join BINARIES + pre-commit [4/7] swap** (cross-repo ~/sos-kit): thêm `inv-gate` vào install.sh BINARIES (asset contract khớp sẵn), swap python3 call trong pre-commit template → binary. Kèm 2 kit-feedback: IG-10 (Intel-Mac/ARM-Linux gap), quarantine UX note (xattr guidance). Nguồn: SOS_KIT_FEEDBACK.md harvest.
-- [ ] **[DEBT] Fix bad-SHA fallback trong schema check** — golden `check-schema-safety.sh:33` dùng SHA empty-tree malformed 15-char (`4b825dc8669f8c0`, thiếu 25 hex); P004 port as-is theo parity-first (method rule 3). Post-parity behavior-change phiếu: dùng SHA empty-tree đủ 40-char. Estimate: 1h. Nguồn: P004 O1.2, docs/discoveries/P004.md.
 
 ---
 
