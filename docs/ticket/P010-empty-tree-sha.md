@@ -92,7 +92,7 @@ _(Worker CHALLENGE điền)_
 ### Final consensus
 - Phiếu version: V<N>
 - Total turns: <count>
-- Approved by Chủ nhà: [date]
+- Approved by Chủ nhà: 11/06/2026 (Sếp pick trực tiếp + Quản đốc approve theo ủy quyền; nghiệm thu qua Giám sát APPROVE + merge cùng ngày)
 
 ---
 

@@ -13,8 +13,8 @@
 > 2 item DEBT Sếp pick trực tiếp từ Open backlog ("em có thể làm cái 1. và 3. luôn").
 > Per-phiếu merge discipline + Giám sát trước merge (cả 2 đụng surface nhạy).
 
-- [ ] **[NEW] P009 — CI actions bump (Node.js 20 deprecation, DEADLINE 16/06/2026).** Bump action versions trong `.github/workflows/` (checkout/rust-toolchain/gh-release...) lên bản Node 22 runtime. Verify bằng tag thử `v0.1.1-rc1` (hoặc workflow_dispatch nếu có) → CI xanh → xóa tag rc. Supply-chain surface → Giám sát trước merge.
-- [ ] **[NEW] P010 — Fix bad-SHA empty-tree fallback trong `check schema`.** Behavior-change post-parity (method rule 3): thay SHA malformed 15-char (port từ `golden:33`) bằng empty-tree SHA chuẩn 40-char (hoặc `git hash-object -t tree /dev/null` runtime). Unit test nhánh 1-commit-repo fallback. Parity pins KHÔNG đổi (fallback không nằm trong fixture path — Worker verify). CLAUDE.md deviation note. Security-gate surface → Giám sát trước merge.
+- [x] **P009 — CI actions bump node24** ✅ 11/06 merged `d62ffc3` — checkout@v5 + gh-release@v3 + conditional prerelease cho rc tag; rc1 verify 3/3 xanh 0 annotation, latest pointer an toàn, cleanup sạch. Deadline 16/06 đã hóa giải.
+- [x] **P010 — empty-tree SHA fix** ✅ 11/06 merged `f1c96b8` — deviation #1 có chủ đích khỏi golden (red→green proof, fail-open thu hẹp, oracle-guard test), pins byte-identical, 100 tests, Giám sát APPROVE.
 
 - [x] **P006 — `serve` (MCP stdio)** ✅ 11/06 merged `c9a6d76` — 5 tools rmcp 1.7.0, buffered-core refactor ~43 sites, 84 tests, live JSON-RPC session verified.
 - [x] **P007 — `gate --skip-absent`** ✅ 11/06 merged `e0150c7` — behavior-change đầu tiên sau parity, guard kép INV-005 + INV-008, fail-closed, Giám sát APPROVE 5 focus, 95 tests.

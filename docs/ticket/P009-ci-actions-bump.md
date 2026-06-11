@@ -147,7 +147,7 @@ Deadline = **June 16, 2026** (forced; không phải soft-warn). Migration target
 ### Final consensus
 - Phiếu version: V2
 - Total turns: 1
-- Approved by Chủ nhà: [date]
+- Approved by Chủ nhà: 11/06/2026 (Sếp pick trực tiếp + Quản đốc approve theo ủy quyền; nghiệm thu qua Giám sát APPROVE + merge cùng ngày)
 
 ---
 
