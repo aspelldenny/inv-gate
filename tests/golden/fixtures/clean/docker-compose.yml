@@ -1,0 +1,13 @@
+# P001 fixture: clean port-bind — no INV-001 violation
+# loopback bind (allowed) + nginx public ports (allowed)
+version: "3.8"
+services:
+  app:
+    image: myapp:1.0.0
+    ports:
+      - "127.0.0.1:8001:8001"
+  nginx:
+    image: nginx:1.25.0
+    ports:
+      - "443:443"
+      - "80:80"

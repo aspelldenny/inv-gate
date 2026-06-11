@@ -37,9 +37,20 @@ Pre-cleared 2026-06-11: W15 cargo-check phase OK · W16 security gate passes ove
 - Worker KHÔNG invent fixture files — synthetic in-code instances for parity probes OK (F07).
 - Exit-code contract is API: `0` clean, `1` findings, `2` usage/config error — pre-commit
   hooks depend on it; document any deviation from the golden scripts in CHANGELOG + here.
+- **P001 deviation (anchor #5/#8):** the 4 individual check scripts exit 0/1 ONLY — no
+  exit-2 mode. Exit 2 applies only to `security-gate.sh` (unknown flag). Rust port must
+  match this per-script behavior; do NOT add exit-2 to individual checks without a
+  separate phiếu + Tầng 1 approval.
 - CHANGELOG bump → `Cargo.toml` version sync (F13).
 - Scan-target patterns (what counts as a secret) are a SECURITY surface → Tầng 1 docs +
   Giám sát review on the PR.
+- **P005 flag mapping:** `inv-gate gate --all` (Rust) ≡ `security-gate.sh --mechanical-only` (golden). SSH mode (`--include-ssh`) not ported Phase 1 (Sprint 2). Dogfood repo: per-check swap in `scripts/security-gate.sh` (INV-009/010 call binary; INV-007 + inline checks retained in bash or skipped).
+- **P003 pattern transcription (INV-010 only):** `golden/check-runtime-secrets.py:100-103`
+  — 4 `db-conn-*` patterns had `(?!\$)` (negative lookahead, unsupported by `regex` crate)
+  dropped. Equivalence proven: the immediately-following class `[^@/\s\$]{8,}` already
+  excludes `$`, making the lookahead redundant. Proof: 15/15 adversarial oracle cases +
+  proof tests g1-g4 in `tests/parity_runtime.rs`. Future patterns with lookahead require a
+  fresh equivalence proof — do NOT apply this transcription blindly.
 
 ## Sos-kit v2 — 3-role envelope
 

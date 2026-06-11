@@ -1,0 +1,11 @@
+❌ DESTRUCTIVE SCHEMA CHANGE DETECTED in prisma/schema.prisma:
+-  legacyToken String?
+-model AuditLog {
+-  id      Int    @id @default(autoincrement())
+-  payload String
+
+Field/model removed → may cause DROP COLUMN/TABLE on db push.
+
+To proceed:
+  CI:    re-run workflow_dispatch with input data_loss_ack=true.
+  Local: verify backup < 24h, then ALLOW_DATA_LOSS=true bash scripts/check-schema-safety.sh

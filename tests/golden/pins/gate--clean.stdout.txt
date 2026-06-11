@@ -1,0 +1,32 @@
+--- INV-001: No host-bind 0.0.0.0 except nginx 80/443 ---
+INV-001: PASS (port bindings clean)
+  PASS
+
+--- INV-002: No :latest tag (except umami/portainer exception) ---
+  PASS
+
+--- INV-003: No real secret value in .env.example ---
+  PASS
+
+--- INV-004: .env.{production,staging,backup,local} gitignored + never committed ---
+  PASS
+
+--- INV-005: Sentry config has beforeSend/beforeBreadcrumb scrubber ---
+  PASS
+
+--- INV-006: astro-service CORS not wildcard ---
+  PASS
+
+--- INV-008: Internal services use expose: not ports: ---
+  PASS
+
+--- INV-009: No hardcoded secret in src/ + astro-service/ source files ---
+INV-009: PASS (0 hardcoded secrets)
+  PASS
+
+--- INV-010: No secret in runtime state + infra files ---
+INV-010: PASS (0 runtime/infra secrets, 3 files scanned)
+  PASS
+
+====================================
+Security gate: 9 passed, 0 failed, 0 warnings

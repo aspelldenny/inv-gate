@@ -1,0 +1,36 @@
+--- INV-001: No host-bind 0.0.0.0 except nginx 80/443 ---
+docker-compose.yml:8: INV-001 violated -- implicit 0.0.0.0 bind: 8001:8001
+  FAIL
+
+--- INV-002: No :latest tag (except umami/portainer exception) ---
+  PASS
+
+--- INV-003: No real secret value in .env.example ---
+  PASS
+
+--- INV-004: .env.{production,staging,backup,local} gitignored + never committed ---
+  PASS
+
+--- INV-005: Sentry config has beforeSend/beforeBreadcrumb scrubber ---
+  PASS
+
+--- INV-006: astro-service CORS not wildcard ---
+  PASS
+
+--- INV-008: Internal services use expose: not ports: ---
+  PASS
+
+--- INV-009: No hardcoded secret in src/ + astro-service/ source files ---
+src/config.ts:3: INV-009 violated -- ghp_...0000 (github-pat)
+src/config.ts:3: INV-009 violated -- ghp_...0000 (generic-entropy)
+src/config.ts:5: INV-009 violated -- FAKE...5678 (generic-entropy)
+  FAIL
+
+--- INV-010: No secret in runtime state + infra files ---
+.git/config:14: INV-010 violated -- ghp_...0000 (github-pat-classic)
+.git/config:14: INV-010 violated -- http...000@ (token-in-url)
+  FAIL
+
+====================================
+Security gate: 6 passed, 3 failed, 0 warnings
+Failed invariants: INV-001 INV-009 INV-010

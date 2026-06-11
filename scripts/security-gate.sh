@@ -32,6 +32,10 @@ if [ -z "$PY" ]; then
     exit 1
 fi
 
+# P005 dogfood — hook chạy ở repo root (core.hooksPath=hooks), path tương đối OK
+INV_GATE="target/release/inv-gate"
+[ -x "$INV_GATE" ] || { echo "❌ inv-gate chưa build — chạy: cargo build --release (đường lui: uncomment các dòng python3, hoặc .backup/P005/security-gate.sh.orig)" >&2; exit 1; }
+
 PASS=0
 FAIL=0
 FAILED_INVS=()
@@ -57,12 +61,14 @@ run() {
 # =============================================================================
 
 # INV-009: no hardcoded secret in source files
+# P005: "$PY" scripts/check-hardcoded-secrets.py
 run "INV-009" "No hardcoded secret in source files" \
-    "$PY" scripts/check-hardcoded-secrets.py
+    "$INV_GATE" check secrets
 
 # INV-010: no secret in runtime state + infra files
+# P005: "$PY" scripts/check-runtime-secrets.py
 run "INV-010" "No secret in runtime state + infra files (Sub-mech F)" \
-    "$PY" scripts/check-runtime-secrets.py
+    "$INV_GATE" check runtime
 
 # =============================================================================
 # CUSTOMIZE — extend with per-repo invariants below this line

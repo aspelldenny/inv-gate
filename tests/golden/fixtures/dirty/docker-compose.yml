@@ -1,0 +1,12 @@
+# P001 fixture: dirty port-bind — triggers INV-001
+# Pattern: implicit 0.0.0.0 bind (golden/check-port-bind.py:48-53)
+version: "3.8"
+services:
+  app:
+    image: myapp:1.0.0
+    ports:
+      - "8001:8001"
+  nginx:
+    image: nginx:1.25.0
+    ports:
+      - "443:443"
