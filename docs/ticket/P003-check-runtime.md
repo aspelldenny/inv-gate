@@ -139,7 +139,7 @@ Rust impl note (Tầng 2, Worker decides at execute): strip invalid bytes via `S
 ### Final consensus
 - Phiếu version: V<N>
 - Total turns: <count>
-- Approved by Chủ nhà: [date]
+- Approved by Chủ nhà: 11/06/2026 (Quản đốc self-approve theo ủy quyền gate kỹ thuật của Chủ nhà cùng ngày; Chủ nhà nghiệm thu retro khi merge sprint)
 
 ---
 

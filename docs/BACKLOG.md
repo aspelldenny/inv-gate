@@ -14,15 +14,16 @@
 > **Kết thúc khi:** `inv-gate gate --all` parity với `golden/security-gate.sh` trên fixture set (same findings + same exit codes), `cargo test` xanh.
 > **Started:** 11/06/2026
 
-- [ ] **[NEW] P001 — Pin golden oracle.** Dựng fixture set (repo mẫu có secret/port-bind/token-in-url/DROP-migration + bản sạch) → chạy 5 script `golden/` → freeze findings + exit codes vào `tests/golden/`. KHÔNG port gì trước khi pin xong. Spec unit (char vs byte) cho mọi offset field (F06).
-- [ ] **[NEW] P002 — `check secrets` (INV-009)** port `check-hardcoded-secrets.py` (192 LOC) + parity test chống pin.
-- [ ] **[NEW] P003 — `check runtime` (INV-010)** port `check-runtime-secrets.py` (246 LOC — token-in-url, .git/config, Sub-mech F) + parity.
-- [ ] **[NEW] P004 — `check port` (INV-001) + `check schema`** port `check-port-bind.py` (82) + `check-schema-safety.sh` (64) + parity.
-- [ ] **[NEW] P005 — `gate --all`** orchestrator (aggregate exit codes, parity với `security-gate.sh` 210 LOC) + swap thử vào pre-commit `[4/7]` của chính repo này (dogfood).
+- [x] **P001 — Pin golden oracle.** ✅ 11/06 shipped `d014e44` — fixture set + repin.sh + 16 pins + exit_codes.json, MANIFEST unit-spec (F06: line-only).
+- [x] **P002 — `check secrets` (INV-009)** ✅ 11/06 shipped `65b1140` — CLI skeleton + port 1:1 + parity byte-exact.
+- [x] **P003 — `check runtime` (INV-010)** ✅ 11/06 shipped `8c7bda3` — 18 pattern classes, db-conn lookahead transcription (equivalence proof 15/15), parity byte-exact.
+- [x] **P004 — `check port` (INV-001) + `check schema`** ✅ 11/06 shipped `683098c` — 2 check + parity stdout+stderr byte-exact, schema git-harness 2-commit.
+- [x] **P005 — `gate --all`** ✅ 11/06 shipped `5a82c00` — orchestrator 9-INV port (6 inline check + INV-008 Python→Rust thuần), parity stdout+stderr byte-exact, dogfood swap PER-CHECK (Chủ nhà decision: thay python3 call trong adapted gate bằng binary; gate --all nguyên con cần profile mode → Sprint 2). Proof-commit hook thật + reversibility test pass.
 
 ## 🎯 Next sprint: Sprint 2 — MCP + distribution
 
 - `serve` (rmcp stdio — tools check_* + gate) · release tag v0.1.0 → 3-target CI → join sos-kit `install.sh` BINARIES · sos-kit pre-commit [4/7] swap python→binary (B+3-style cho gate class nếu fail-closed cần)
+- **Profile/flag mode cho `gate --all` đa-repo** (từ P005 decision (c)): golden gate là tarot-specific (INV-004/005/008 đòi file webapp) → exit 1 trên repo non-webapp. Cần `--profile <type>` hoặc skip-INV-khi-file-absent — behavior change, phiếu riêng theo method rule 3, đụng security surface → Giám sát review.
 
 ## 🎯 Next sprint (template): <Sprint name / theme>
 
@@ -51,7 +52,7 @@
 
 <!-- Sếp dump idea ở đây qua /idea skill, hoặc trực tiếp edit tay. -->
 
-- [ ] <Idea 1 — gì + tại sao + estimate sơ bộ>
+- [ ] **[DEBT] Fix bad-SHA fallback trong schema check** — golden `check-schema-safety.sh:33` dùng SHA empty-tree malformed 15-char (`4b825dc8669f8c0`, thiếu 25 hex); P004 port as-is theo parity-first (method rule 3). Post-parity behavior-change phiếu: dùng SHA empty-tree đủ 40-char. Estimate: 1h. Nguồn: P004 O1.2, docs/discoveries/P004.md.
 
 ---
 
@@ -69,7 +70,7 @@
 
 <!-- Khi sprint xong, move tóm tắt 1-line vào đây. Giữ tối đa 3 sprint gần nhất. -->
 
-- ✅ **<Sprint name>** (DD/MM/YYYY) — <one-line summary>
+- ✅ **Sprint 1 — Golden-oracle port (Phase 1 CLI)** (11/06/2026) — 5/5 phiếu shipped trong 1 ngày: oracle pinned (16 pins) + 4 check + gate orchestrator port sang Rust, 79 tests xanh, parity byte-exact, dogfood per-check swap live trong pre-commit (python3 killed khỏi [4/7]).
 
 ---
 

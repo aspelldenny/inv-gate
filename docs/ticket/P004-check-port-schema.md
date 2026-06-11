@@ -100,7 +100,7 @@ echo "✓ Snapshot at .backup/${PHIEU_ID}/"
 ### Final consensus
 - Phiếu version: V2
 - Total turns: 1
-- Approved by Chủ nhà: [pending]
+- Approved by Chủ nhà: 11/06/2026 (Quản đốc self-approve theo ủy quyền; Chủ nhà nghiệm thu retro khi merge sprint 11/06/2026)
 
 ---
 

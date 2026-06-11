@@ -120,7 +120,7 @@ echo "✓ Snapshot at .backup/${PHIEU_ID}/"
 ### Final consensus
 - Phiếu version: V2
 - Total turns: 1 (+ 1 Chủ nhà decision via AskUserQuestion)
-- Approved by Chủ nhà: [pending — dogfood approach đã approve Turn 1; full phiếu approval tại APPROVAL_GATE]
+- Approved by Chủ nhà: 11/06/2026 (dogfood per-check swap: Chủ nhà quyết trực tiếp qua AskUserQuestion Turn 1; execute: Quản đốc approve theo ủy quyền; Chủ nhà nghiệm thu retro khi merge sprint 11/06/2026)
 
 ---
 
