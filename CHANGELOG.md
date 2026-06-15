@@ -2,6 +2,10 @@
 
 Format loosely follows Keep a Changelog.
 
+## v0.1.1 — release CI: publish .sha256 checksums (P071) — 2026-06-15
+
+- Release CI (`release.yml`): add sha256 checksum generation per asset (sha256sum primary, shasum -a 256 fallback for macOS) + publish `.sha256` alongside binary. Draft/publish split to avoid immutable-release race on concurrent matrix jobs. Preserves inv-gate drift: checkout@v5, action-gh-release@v3, prerelease flag. Part of P071 Stage 1 fan-out.
+
 ## [Unreleased] — P010 — fix empty-tree SHA fallback (check schema) — 2026-06-11
 
 ### Fixed
