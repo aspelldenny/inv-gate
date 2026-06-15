@@ -2,6 +2,10 @@
 
 Format loosely follows Keep a Changelog.
 
+## v0.1.2 — release CI: bump github-script@v7→v8 (P072) — 2026-06-15
+
+- Release CI: `actions/github-script@v7→v8` (residual Node20 action — checkout@v5 and action-gh-release@v3 already current from P009). GitHub Node20 runtime deprecated 16/06/2026.
+
 ## v0.1.1 — release CI: publish .sha256 checksums (P071) — 2026-06-15
 
 - Release CI (`release.yml`): add sha256 checksum generation per asset (sha256sum primary, shasum -a 256 fallback for macOS) + publish `.sha256` alongside binary. Draft/publish split to avoid immutable-release race on concurrent matrix jobs. Preserves inv-gate drift: checkout@v5, action-gh-release@v3, prerelease flag. Part of P071 Stage 1 fan-out.
